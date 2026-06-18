@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}考前速查 — 期末复习{% endblock %}
+{% block content %}
+<div class="container">
+    <h2 style="margin-bottom:8px;">⚡ 考前速查</h2>
+    <p style="color:var(--text-secondary);margin-bottom:8px;">临考 5 分钟快速翻阅：核心公式 + 高频易错 + 必考清单</p>
+
+    <!-- 快速跳转四科 -->
+    <div class="filter-bar" style="margin-bottom:20px;">
+        <button class="filter-btn active" onclick="showReviewTab('all', this)">全部</button>
+        <button class="filter-btn" onclick="showReviewTab('complex-analysis', this)">🔵 复变函数</button>
+        <button class="filter-btn" onclick="showReviewTab('abstract-algebra', this)">🟢 抽象代数</button>
+        <button class="filter-btn" onclick="showReviewTab('operations-research', this)">🟠 运筹学</button>
+        <button class="filter-btn" onclick="showReviewTab('data-structures-c', this)">🔴 数据结构</button>
+    </div>
+
+    <!-- 核心公式速查卡 -->
+    <h3 style="margin:20px 0 12px;">📐 核心公式速查</h3>
+    <div class="dash-row" id="formula-cards">
+        <div class="dash-card" data-subj="complex-analysis" style="text-align:left;font-size:13px;line-height:2;">
+            <strong>🔵 复变函数</strong>
+            <div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">
+            • C-R: \(u_x=v_y,\ u_y=-v_x\)<br>
+            • Cauchy: \(\oint\frac{f(z)}{z-z_0}dz=2\pi i f(z_0)\)<br>
+            • 留数: \(\operatorname{Res}=c_{-1}\)<br>
+            • Möbius: \(w=\frac{az+b}{cz+d}\)
+            </div>
+        </div>
+        <div class="dash-card" data-subj="abstract-algebra" style="text-align:left;font-size:13px;line-height:2;">
+            <strong>🟢 抽象代数</strong>
+            <div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">
+            • Lagrange: \(|H|\mid|G|\)<br>
+            • 同构定理: \(G/\ker\varphi\cong\operatorname{Im}\varphi\)<br>
+            • Sylow: \(n_p\equiv1\pmod{p},\ n_p\mid m\)<br>
+            • 极大理想 ↔ 域
+            </div>
+        </div>
+        <div class="dash-card" data-subj="operations-research" style="text-align:left;font-size:13px;line-height:2;">
+            <strong>🟠 运筹学</strong>
+            <div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">
+            • 单纯形: 检验数 \(c_j-z_j\)<br>
+            • 对偶: max↔min, 系数转置<br>
+            • M/M/1: \(L_s=\frac{\rho}{1-\rho}\)<br>
+            • EOQ: \(Q^*=\sqrt{2C_3R/C_1}\)
+            </div>
+        </div>
+        <div class="dash-card" data-subj="data-structures-c" style="text-align:left;font-size:13px;line-height:2;">
+            <strong>🔴 数据结构</strong>
+            <div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">
+            • 二叉树: \(n_0=n_2+1\)<br>
+            • AVL: LL/RR/LR/RL 旋转<br>
+            • KMP: \(O(m+n)\) next数组<br>
+            • 排序: 冒插归稳, 选快堆希不稳
+            </div>
+        </div>
+    </div>
+
+    <!-- 易错陷阱 -->
+    <h3 style="margin:24px 0 12px;">⚠️ 高频易错陷阱</h3>
+    <div class="dash-row">
+        <div class="dash-card" data-subj="complex-analysis" style="text-align:left;font-size:13px;">
+            <strong>🔵 复变陷阱</strong>
+            <ul style="font-size:12px;color:var(--text-secondary);margin:4px 0 0 16px;">
+                <li>仅一点满足C-R ≠ 解析</li>
+                <li>Cauchy定理不能跨过奇点</li>
+                <li>Laurent展开必须写清环域</li>
+                <li>留数只取 c₋₁ 系数</li>
+            </ul>
+        </div>
+        <div class="dash-card" data-subj="abstract-algebra" style="text-align:left;font-size:13px;">
+            <strong>🟢 代数陷阱</strong>
+            <ul style="font-size:12px;color:var(--text-secondary);margin:4px 0 0 16px;">
+                <li>子群 ≠ 正规子群</li>
+                <li>商群要求正规子群</li>
+                <li>阿贝尔群所有子群正规</li>
+                <li>Zₙ是域必须n为素数</li>
+            </ul>
+        </div>
+        <div class="dash-card" data-subj="operations-research" style="text-align:left;font-size:13px;">
+            <strong>🟠 运筹陷阱</strong>
+            <ul style="font-size:12px;color:var(--text-secondary);margin:4px 0 0 16px;">
+                <li>入基选最大正检验数</li>
+                <li>出基用最小比值（只看正主元）</li>
+                <li>运输问题基变量=m+n-1</li>
+                <li>DP必须加边界条件</li>
+            </ul>
+        </div>
+        <div class="dash-card" data-subj="data-structures-c" style="text-align:left;font-size:13px;">
+            <strong>🔴 数据结构陷阱</strong>
+            <ul style="font-size:12px;color:var(--text-secondary);margin:4px 0 0 16px;">
+                <li>循环队列判满=(rear+1)%MAX==front</li>
+                <li>BST最坏退化O(n)</li>
+                <li>快排最坏O(n²)已有序时</li>
+                <li>B树关键字数=子树数-1</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- 原有内容 -->
+    <div class="review-grid" style="margin-top:24px;">
+        <div class="article">
+            <h3 style="margin-bottom:12px;">📋 错题压缩速记</h3>
+            {{ wrong_notes | safe }}
+        </div>
+        <div class="article">
+            <h3 style="margin-bottom:12px;">🗺 复习路线</h3>
+            {{ roadmap | safe }}
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function showReviewTab(subj, btn) {
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('[data-subj]').forEach(el => {
+        if (subj === 'all' || el.dataset.subj === subj) {
+            el.style.display = '';
+        } else {
+            el.style.display = 'none';
+        }
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,254 @@
+{% extends "base.html" %}
+{% block title %}智能测验 — 期末复习{% endblock %}
+{% block content %}
+<div class="container">
+    <h2 style="margin-bottom:16px;">🎯 智能测验</h2>
+
+    <!-- 设置面板 -->
+    <div id="quiz-setup" class="wrong-form">
+        <h3 style="margin-bottom:12px;">测验设置</h3>
+        <label>选择科目</label>
+        <select id="quiz-subject">
+            <option value="">全部科目（随机抽题）</option>
+            <option value="复变函数">🔵 复变函数</option>
+            <option value="抽象代数">🟢 抽象代数</option>
+            <option value="运筹学">🟠 运筹学</option>
+            <option value="数据结构 C">🔴 数据结构 C</option>
+        </select>
+        <label>题目数量</label>
+        <select id="quiz-count">
+            <option value="3">3 题（快速测验）</option>
+            <option value="5" selected>5 题（标准测验）</option>
+            <option value="10">10 题（模拟考试）</option>
+        </select>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+            <input type="checkbox" id="quiz-timer-mode" style="width:auto;">
+            ⏱ 计时模式（模拟考试压力）
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+            <input type="checkbox" id="quiz-adaptive-mode" style="width:auto;">
+            🧠 自适应模式（优先出弱科题目，精准补短板）
+        </label>
+        <button onclick="startQuiz()" style="margin-top:16px;padding:10px 28px;background:var(--blue);color:#fff;border:none;border-radius:8px;font-size:15px;cursor:pointer;">开始测验</button>
+    </div>
+
+    <!-- 答题区 -->
+    <div id="quiz-area" style="display:none;">
+        <div class="quiz-progress" id="quiz-progress"></div>
+        <div class="quiz-timer-display" id="quiz-timer-display" style="display:none;text-align:center;margin-bottom:8px;font-size:14px;color:var(--text-secondary);">⏱ 本题用时：<span id="quiz-timer" style="font-weight:600;font-variant-numeric:tabular-nums;">00:00</span></div>
+        <div class="quiz-card" id="quiz-card">
+            <div class="quiz-subject" id="quiz-current-subject"></div>
+            <h3 id="quiz-title"></h3>
+            <div id="quiz-body"></div>
+            <div class="quiz-answer-section" id="quiz-answer-section" style="display:none;">
+                <div class="quiz-correct-answer" id="quiz-correct-answer"></div>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:16px;">
+                <button class="quiz-btn secondary" id="quiz-show-btn" onclick="showAnswer()">👁 查看答案</button>
+                <button class="quiz-btn correct" id="quiz-correct-btn" onclick="markCorrect()" style="display:none;">✅ 我做对了</button>
+                <button class="quiz-btn wrong" id="quiz-wrong-btn" onclick="markWrong()" style="display:none;">❌ 我做错了</button>
+                <button class="quiz-btn primary" id="quiz-next-btn" onclick="nextQuestion()" style="display:none;">下一题 →</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 结果区 -->
+    <div id="quiz-result" style="display:none;">
+        <div class="wrong-form" style="text-align:center;">
+            <h2 id="result-score"></h2>
+            <p style="color:var(--gray-600);" id="result-detail"></p>
+            <div id="result-wrong-list" style="text-align:left;margin-top:16px;"></div>
+            <button onclick="location.reload()" style="margin-top:16px;padding:10px 28px;background:var(--blue);color:#fff;border:none;border-radius:8px;font-size:15px;cursor:pointer;">再来一轮</button>
+            <a href="/wrong" style="display:inline-block;margin-top:8px;color:var(--blue);">去错题本查看 →</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+let problems = [], currentIdx = -1, correctCount = 0, wrongList = [];
+let timerMode = false, timerInterval = null;
+let totalElapsed = 0, questionTimes = [], questionStartTime = 0;
+
+async function startQuiz() {
+    const subject = document.getElementById('quiz-subject').value;
+    const count = document.getElementById('quiz-count').value;
+    timerMode = document.getElementById('quiz-timer-mode').checked;
+    const adaptive = document.getElementById('quiz-adaptive-mode').checked ? '1' : '0';
+    // 模拟考试自动开启计时
+    if (parseInt(count) >= 10) {
+        timerMode = true;
+        document.getElementById('quiz-timer-mode').checked = true;
+    }
+    const res = await fetch(`/api/quiz/problems?subject=${encodeURIComponent(subject)}&count=${count}&adaptive=${adaptive}`);
+    const data = await res.json();
+    problems = data.problems;
+    if (!problems.length) { alert('该科目暂无题目，请换一个科目或选择全部。'); return; }
+    correctCount = 0; wrongList = []; currentIdx = -1;
+    totalElapsed = 0; questionTimes = [];
+    document.getElementById('quiz-setup').style.display = 'none';
+    document.getElementById('quiz-area').style.display = 'block';
+    document.getElementById('quiz-result').style.display = 'none';
+    // 显示计时器
+    if (timerMode) {
+        document.getElementById('quiz-timer-display').style.display = '';
+        updateTimerDisplay();
+    } else {
+        document.getElementById('quiz-timer-display').style.display = 'none';
+    }
+    nextQuestion();
+}
+
+function startQuestionTimer() {
+    questionStartTime = Date.now();
+    if (timerMode && !timerInterval) {
+        timerInterval = setInterval(function() {
+            var now = Date.now();
+            var elapsed = Math.floor((now - questionStartTime) / 1000) + (questionTimes.length > 0 ? questionTimes[questionTimes.length-1] || 0 : 0);
+            updateTimerDisplay(elapsed);
+        }, 1000);
+    }
+}
+
+function stopQuestionTimer() {
+    var elapsed = Math.floor((Date.now() - questionStartTime) / 1000);
+    questionTimes.push(elapsed);
+    if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+}
+
+function updateTimerDisplay(secs) {
+    var s = secs || 0;
+    var m = Math.floor(s / 60);
+    var sec = s % 60;
+    var el = document.getElementById('quiz-timer');
+    if (el) {
+        el.textContent = (m < 10 ? '0' : '') + m + ':' + (sec < 10 ? '0' : '') + sec;
+        // 题目建议时间 3 分钟，超过变红
+        if (s > 180) el.style.color = '#ef4444';
+        else if (s > 120) el.style.color = '#f59e0b';
+        else el.style.color = '';
+    }
+}
+
+function renderMath(container) {
+    // 保存 code/pre 标签内容（不处理其中的公式）
+    var preserved = [];
+    var html = container.innerHTML;
+    html = html.replace(/<(code|pre)[^>]*>[\s\S]*?<\/\1>/g, function(m) {
+        preserved.push(m);
+        return '@@@PRE' + (preserved.length - 1) + '@@@';
+    });
+    // 先处理块级 $$...$$
+    html = html.replace(/\$\$([\s\S]+?)\$\$/g, function(_, latex) {
+        try { return katex.renderToString(latex.trim(), {displayMode: true, throwOnError: false}); }
+        catch(e) { return '<code>公式渲染错误</code>'; }
+    });
+    // 再处理行内 $...$（排除 $$ 残留）
+    html = html.replace(/(^|[^$])\$([^$]+?)\$([^$]|$)/g, function(_, before, latex, after) {
+        try { return before + katex.renderToString(latex.trim(), {displayMode: false, throwOnError: false}) + after; }
+        catch(e) { return before + latex + after; }
+    });
+    // 还原保留元素
+    html = html.replace(/@@@PRE(\d+)@@@/g, function(_, i) { return preserved[parseInt(i)]; });
+    container.innerHTML = html;
+}
+
+function renderQuestion(i) {
+    const p = problems[i];
+    document.getElementById('quiz-progress').textContent = `第 ${i+1} / ${problems.length} 题`;
+    document.getElementById('quiz-current-subject').textContent = p.subject;
+    document.getElementById('quiz-title').textContent = p.title;
+    const el = document.getElementById('quiz-body');
+    // body 已经是服务端渲染的 HTML
+    el.innerHTML = p.body || '';
+    renderMath(el);
+    document.getElementById('quiz-answer-section').style.display = 'none';
+    document.getElementById('quiz-show-btn').style.display = '';
+    document.getElementById('quiz-correct-btn').style.display = 'none';
+    document.getElementById('quiz-wrong-btn').style.display = 'none';
+    document.getElementById('quiz-next-btn').style.display = 'none';
+    startQuestionTimer();
+}
+
+function showAnswer() {
+    stopQuestionTimer();
+    const p = problems[currentIdx];
+    const el = document.getElementById('quiz-correct-answer');
+    // full_body 已经是服务端渲染的 HTML（含完整解答）
+    el.innerHTML = '<strong>📖 解答：</strong><br>' + (p.full_body || p.body || '');
+    renderMath(el);
+    document.getElementById('quiz-answer-section').style.display = 'block';
+    document.getElementById('quiz-show-btn').style.display = 'none';
+    document.getElementById('quiz-correct-btn').style.display = '';
+    document.getElementById('quiz-wrong-btn').style.display = '';
+}
+
+function markCorrect() { correctCount++; finishQuestion(); }
+function markWrong() { wrongList.push(problems[currentIdx]); finishQuestion(); }
+
+function finishQuestion() {
+    document.getElementById('quiz-correct-btn').style.display = 'none';
+    document.getElementById('quiz-wrong-btn').style.display = 'none';
+    document.getElementById('quiz-next-btn').style.display = '';
+}
+
+function nextQuestion() {
+    currentIdx++;
+    if (currentIdx >= problems.length) {
+        if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+        totalElapsed = questionTimes.reduce(function(a,b){return a+b;}, 0);
+        showResult();
+        return;
+    }
+    renderQuestion(currentIdx);
+}
+
+function showResult() {
+    document.getElementById('quiz-area').style.display = 'none';
+    document.getElementById('quiz-result').style.display = 'block';
+    const score = Math.round(correctCount / problems.length * 100);
+    let emoji = score >= 80 ? '🎉' : score >= 50 ? '💪' : '📚';
+    var timingHTML = '';
+    if (timerMode && totalElapsed > 0) {
+        var avgSec = Math.round(totalElapsed / problems.length);
+        timingHTML = '<div style="margin-top:12px;font-size:14px;color:var(--text-secondary);">' +
+            '⏱ 总用时：' + Math.floor(totalElapsed/60) + '分' + (totalElapsed%60) + '秒 · ' +
+            '平均每题：' + Math.floor(avgSec/60) + '分' + (avgSec%60) + '秒</div>';
+    }
+    document.getElementById('result-score').innerHTML = `${emoji} 得分：${correctCount} / ${problems.length}（${score}%）`;
+    document.getElementById('result-detail').innerHTML = (score >= 80 ? '很棒！继续保持。' : score >= 50 ? '还有提升空间，看看错题复习一下。' : '需要加强复习，建议多看知识点页面。') + timingHTML;
+
+    // 保存成绩到 localStorage
+    const subject = document.getElementById('quiz-subject').value || '综合';
+    const history = JSON.parse(localStorage.getItem('quiz_history') || '[]');
+    var entry = {
+        date: new Date().toISOString().split('T')[0],
+        subject: subject,
+        correct: correctCount,
+        total: problems.length,
+        score: score
+    };
+    if (timerMode) {
+        entry.timing = {total: totalElapsed, perQuestion: questionTimes};
+    }
+    history.push(entry);
+    if (history.length > 100) history.shift();
+    localStorage.setItem('quiz_history', JSON.stringify(history));
+    // 记录今日活跃
+    const today = new Date().toISOString().split('T')[0];
+    const activity = JSON.parse(localStorage.getItem('daily_activity') || '{}');
+    activity[today] = (activity[today] || 0) + 1;
+    localStorage.setItem('daily_activity', JSON.stringify(activity));
+
+    const wl = document.getElementById('result-wrong-list');
+    if (wrongList.length > 0) {
+        wl.innerHTML = '<h3>做错的题目：</h3>';
+        wrongList.forEach((p, i) => {
+            wl.innerHTML += `<div style="background:var(--danger-light);border-radius:8px;padding:12px;margin:8px 0;font-size:14px;">
+                <strong>${i+1}. [${p.subject}] ${p.title}</strong>
+            </div>`;
+        });
+    }
+}
+</script>
+{% endblock %}

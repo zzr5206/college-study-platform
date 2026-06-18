@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+{% block title %}闪卡复习 — 期末复习{% endblock %}
+{% block content %}
+<div class="container">
+    <h2 style="margin-bottom:16px;">🃏 闪卡复习</h2>
+
+    <div class="filter-bar" style="margin-bottom:20px;">
+        <button class="filter-btn active" onclick="loadCards('complex-analysis', this)">🔵 复变函数</button>
+        <button class="filter-btn" onclick="loadCards('abstract-algebra', this)">🟢 抽象代数</button>
+        <button class="filter-btn" onclick="loadCards('operations-research', this)">🟠 运筹学</button>
+        <button class="filter-btn" onclick="loadCards('data-structures-c', this)">🔴 数据结构</button>
+    </div>
+
+    <!-- 进度条 -->
+    <div id="progress-bar" style="margin-bottom:20px;display:none;">
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;">
+            <span id="progress-label">已掌握：0 / 0</span>
+            <span id="progress-review">待复习：0</span>
+        </div>
+        <div style="height:8px;background:#e5e7eb;border-radius:4px;overflow:hidden;">
+            <div id="progress-fill" style="height:100%;background:var(--blue);border-radius:4px;width:0%;transition:.3s;"></div>
+        </div>
+    </div>
+
+    <!-- 闪卡区 -->
+    <div class="flashcard-container" id="flashcard-container" style="display:none;">
+        <div class="flashcard" id="flashcard" onclick="flipCard()">
+            <div class="flashcard-inner" id="flashcard-inner">
+                <div class="flashcard-front" id="card-front"></div>
+                <div class="flashcard-back" id="card-back"></div>
+            </div>
+        </div>
+        <div style="text-align:center;font-size:13px;color:var(--gray-600);margin-top:8px;">👆 点击卡片翻转</div>
+
+        <div id="rating-buttons" style="text-align:center;margin-top:16px;display:none;">
+            <button class="quiz-btn wrong" onclick="rateCard(0)">❌ 忘了</button>
+            <button class="quiz-btn secondary" onclick="rateCard(2)" style="background:#fef3c7;border-color:#f59e0b;color:#92400e;">🟡 模糊</button>
+            <button class="quiz-btn correct" onclick="rateCard(4)">✅ 记得</button>
+        </div>
+
+        <div style="text-align:center;margin-top:12px;">
+            <span id="card-counter" style="font-size:13px;color:var(--gray-600);"></span>
+        </div>
+    </div>
+
+    <div class="empty-state" id="flashcard-empty">
+        <div class="icon">🃏</div>
+        <p>选择一个科目开始闪卡复习</p>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+// ── SM-2 间隔重复算法 ──
+// 数据结构: { subjectKey: { cardFront: { n, ef, interval, dueDate, reps } } }
+const SM2_KEY = 'flashcard_sm2';
+const MIGRATED_KEY = 'flashcard_sm2_migrated';
+
+let sm2 = JSON.parse(localStorage.getItem(SM2_KEY) || '{}');
+let cards = [], dueCards = [], currentCard = 0, reviewed = 0;
+let isFlipped = false;
+
+// SM-2 参数
+function sm2Schedule(quality, prev) {
+    // quality: 0=完全忘记, 2=模糊, 3=记得, 4=轻松
+    var n = prev.n || 0;
+    var ef = prev.ef || 2.5;
+    var interval = prev.interval || 0;
+
+    if (quality < 2) {
+        // 忘记：重置
+        n = 0;
+        interval = 0;
+    } else if (quality === 2) {
+        // 模糊：增量减半
+        n = n + 1;
+        interval = n === 1 ? 1 : n === 2 ? 3 : Math.max(1, Math.round((interval || (n === 1 ? 1 : 3)) * 0.8));
+    } else {
+        // 记得或轻松
+        n = n + 1;
+        if (n === 1) interval = 1;
+        else if (n === 2) interval = 3;
+        else interval = Math.round(interval * ef);
+    }
+
+    // 更新 EF
+    var q = quality === 4 ? 5 : quality === 3 ? 4 : quality === 2 ? 3 : 1;
+    ef = ef + (0.1 - (5 - q) * (0.08 + (5 - q) * 0.02));
+    if (ef < 1.3) ef = 1.3;
+
+    var today = new Date();
+    var due = new Date(today);
+    due.setDate(due.getDate() + interval);
+
+    return {
+        n: n,
+        ef: Math.round(ef * 100) / 100,
+        interval: interval,
+        dueDate: due.toISOString().split('T')[0],
+        reps: (prev.reps || 0) + 1
+    };
+}
+
+// 自动迁移旧数据
+function migrateOldData() {
+    if (localStorage.getItem(MIGRATED_KEY)) return;
+    var oldMastery = JSON.parse(localStorage.getItem('flashcard_mastery') || '{}');
+    if (!Object.keys(oldMastery).length) {
+        localStorage.setItem(MIGRATED_KEY, '1');
+        return;
+    }
+    // 旧格式: { subjectKey: { cardFront: 1|2|3 } }
+    // 映射: 1→0(忘记), 2→2(模糊), 3→3(记得)
+    for (var subj in oldMastery) {
+        if (!sm2[subj]) sm2[subj] = {};
+        for (var front in oldMastery[subj]) {
+            var oldRating = oldMastery[subj][front];
+            var q = oldRating === 3 ? 3 : oldRating === 2 ? 2 : 0;
+            sm2[subj][front] = sm2Schedule(q, {n:0, ef:2.5, interval:0, reps:0});
+        }
+    }
+    localStorage.setItem(SM2_KEY, JSON.stringify(sm2));
+    localStorage.setItem(MIGRATED_KEY, '1');
+    // 保留旧数据备份
+    localStorage.setItem('flashcard_mastery_backup', JSON.stringify(oldMastery));
+}
+
+migrateOldData();
+
+async function loadCards(subjectKey, btn) {
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const res = await fetch(`/api/flashcards/${subjectKey}`);
+    const data = await res.json();
+    cards = data.cards;
+
+    // 初始化 SM-2 数据，筛选到期卡片
+    var today = new Date().toISOString().split('T')[0];
+    if (!sm2[subjectKey]) sm2[subjectKey] = {};
+    dueCards = [];
+    var newCards = [];
+
+    cards.forEach(function(card) {
+        var entry = sm2[subjectKey][card.front];
+        if (!entry) {
+            // 新卡片，今天就该复习
+            newCards.push(card);
+        } else if (entry.dueDate <= today) {
+            dueCards.push(card);
+        }
+    });
+
+    // 到期卡片优先，新卡片其次
+    dueCards = dueCards.concat(newCards);
+
+    // 统计
+    var totalKnown = Object.values(sm2[subjectKey]).filter(function(e) { return e.n >= 1; }).length;
+
+    if (dueCards.length === 0) {
+        document.getElementById('flashcard-empty').innerHTML = '<div class="icon">🎉</div><p>今天没有需要复习的卡片！</p><p style="font-size:13px;">已掌握 ' + totalKnown + ' / ' + cards.length + ' 张</p>';
+        document.getElementById('flashcard-empty').style.display = 'block';
+        document.getElementById('flashcard-container').style.display = 'none';
+        document.getElementById('progress-bar').style.display = 'none';
+        return;
+    }
+
+    currentCard = 0; reviewed = 0;
+    document.getElementById('flashcard-empty').style.display = 'none';
+    document.getElementById('flashcard-container').style.display = 'block';
+    document.getElementById('progress-bar').style.display = 'block';
+    updateSM2Progress(subjectKey);
+    showCard();
+}
+
+function showCard() {
+    if (currentCard >= dueCards.length) {
+        var subjKey = getActiveSubjectKey();
+        var totalKnown = Object.values(sm2[subjKey] || {}).filter(function(e) { return e.n >= 1; }).length;
+        document.getElementById('flashcard-container').innerHTML = `
+            <div class="empty-state">
+                <div class="icon">🎉</div>
+                <p>本轮完成！复习了 ${reviewed} 张卡片</p>
+                <p style="font-size:13px;">已掌握 ${totalKnown} / ${cards.length} 张</p>
+                <button class="quiz-btn primary" onclick="location.reload()" style="margin-top:12px;">再来一轮</button>
+            </div>`;
+        return;
+    }
+    var card = dueCards[currentCard];
+    document.getElementById('card-front').innerHTML = `<div class="flashcard-label">📝 ${card.front}</div>`;
+    document.getElementById('card-back').innerHTML = `<div class="flashcard-label">💡 ${card.back}</div>`;
+    document.getElementById('card-counter').textContent = (currentCard + 1) + ' / ' + dueCards.length;
+    document.getElementById('rating-buttons').style.display = 'none';
+    isFlipped = false;
+    document.getElementById('flashcard-inner').classList.remove('flipped');
+    if (window.renderMathInElement) {
+        renderMathInElement(document.getElementById('card-front'), {delimiters:[{left:"$$",right:"$$",display:true},{left:"$",right:"$",display:false}]});
+        renderMathInElement(document.getElementById('card-back'), {delimiters:[{left:"$$",right:"$$",display:true},{left:"$",right:"$",display:false}]});
+    }
+}
+
+function flipCard() {
+    isFlipped = !isFlipped;
+    document.getElementById('flashcard-inner').classList.toggle('flipped', isFlipped);
+    if (isFlipped) {
+        document.getElementById('rating-buttons').style.display = '';
+    }
+}
+
+function getActiveSubjectKey() {
+    var key = document.querySelector('.filter-btn.active').textContent.replace(/^[🔵🟢🟠🔴]\s*/, '');
+    return {复变函数:'complex-analysis',抽象代数:'abstract-algebra',运筹学:'operations-research','数据结构 C':'data-structures-c','数据结构':'data-structures-c'}[key] || key;
+}
+
+function rateCard(quality) {
+    var subjKey = getActiveSubjectKey();
+    var card = dueCards[currentCard];
+    if (!sm2[subjKey]) sm2[subjKey] = {};
+    var prev = sm2[subjKey][card.front] || {n:0, ef:2.5, interval:0, reps:0};
+    sm2[subjKey][card.front] = sm2Schedule(quality, prev);
+    localStorage.setItem(SM2_KEY, JSON.stringify(sm2));
+    reviewed++;
+    currentCard++;
+    updateSM2Progress(subjKey);
+    showCard();
+}
+
+function updateSM2Progress(subjKey) {
+    var subjSm2 = sm2[subjKey] || {};
+    var known = Object.values(subjSm2).filter(function(e) { return e.n >= 1; }).length;
+    var total = cards.length;
+    document.getElementById('progress-label').textContent = '已掌握：' + known + ' / ' + total;
+    document.getElementById('progress-review').textContent = '本轮待复习：' + (dueCards.length - currentCard);
+    document.getElementById('progress-fill').style.width = (known / Math.max(total, 1) * 100) + '%';
+}
+</script>
+{% endblock %}

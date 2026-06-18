@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}视频解析 — 期末复习{% endblock %}
+{% block content %}
+<div class="container">
+    <h2 style="margin-bottom:8px;">🎬 B站视频解析</h2>
+    <p style="color:var(--gray-600);margin-bottom:20px;">每个知识点配有精选 B 站视频，点击跳转观看。BV 号可直接在 B 站搜索。</p>
+
+    <div class="article">
+        {{ content | safe }}
+    </div>
+</div>
+{% endblock %}

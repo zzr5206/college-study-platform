@@ -1,0 +1,352 @@
+{% extends "base.html" %}
+{% block title %}加强训练 — 期末复习{% endblock %}
+{% block content %}
+<div class="container">
+    <h2 style="margin-bottom:8px;">💪 加强训练</h2>
+    <p style="color:var(--text-secondary);margin-bottom:24px;">错题重练 · 艾宾浩斯复习 · 薄弱突破 · 每日计划</p>
+
+    <!-- 4 个模块入口卡片 -->
+    <div class="dash-row" style="margin-bottom:20px;">
+        <div class="dash-card" onclick="scrollToSection('wrong-retry')" style="cursor:pointer;">
+            <div style="font-size:32px;">🔄</div>
+            <div class="dash-label">错题重练</div>
+        </div>
+        <div class="dash-card" onclick="scrollToSection('ebbinghaus')" style="cursor:pointer;">
+            <div style="font-size:32px;">🧠</div>
+            <div class="dash-label">艾宾浩斯计划</div>
+        </div>
+        <div class="dash-card" onclick="scrollToSection('weak-break')" style="cursor:pointer;">
+            <div style="font-size:32px;">🎯</div>
+            <div class="dash-label">薄弱突破</div>
+        </div>
+        <div class="dash-card" onclick="scrollToSection('daily-plan')" style="cursor:pointer;">
+            <div style="font-size:32px;">📋</div>
+            <div class="dash-label">每日计划</div>
+        </div>
+    </div>
+
+    <!-- ====== 模块 1: 错题重练 ====== -->
+    <div class="wrong-form" id="wrong-retry">
+        <h3>🔄 错题重练 <span style="font-weight:400;font-size:13px;color:var(--text-secondary);">— 主动回忆，真正消化</span></h3>
+        <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px;">每题先自己回忆答案，再对照正确解答。答对移出待练池，答错继续练习。</p>
+        <!-- 设置 -->
+        <div style="display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin-bottom:16px;">
+            <div>
+                <label style="font-size:12px;color:var(--text-secondary);">科目</label>
+                <select id="wp-subject" style="padding:6px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);">
+                    <option value="">全部错题</option>
+                    <option value="复变函数">🔵 复变函数</option>
+                    <option value="抽象代数">🟢 抽象代数</option>
+                    <option value="运筹学">🟠 运筹学</option>
+                    <option value="数据结构 C">🔴 数据结构 C</option>
+                </select>
+            </div>
+            <div>
+                <label style="font-size:12px;color:var(--text-secondary);">题数</label>
+                <select id="wp-count" style="padding:6px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);">
+                    <option value="3">3 题</option>
+                    <option value="5" selected>5 题</option>
+                    <option value="10">10 题</option>
+                </select>
+            </div>
+            <button class="quiz-btn primary" onclick="startWrongPractice()">开始重练</button>
+            <span id="wp-stats" style="font-size:13px;color:var(--text-secondary);"></span>
+        </div>
+        <!-- 练习区 -->
+        <div id="wp-area" style="display:none;">
+            <div id="wp-progress" style="text-align:center;font-size:14px;margin-bottom:12px;"></div>
+            <div id="wp-card" style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:12px;">
+                <div id="wp-subject-tag" style="font-size:12px;color:var(--blue);margin-bottom:4px;"></div>
+                <h4 id="wp-title" style="margin-bottom:8px;"></h4>
+                <div id="wp-body" style="font-size:14px;line-height:1.7;margin-bottom:12px;"></div>
+                <div id="wp-answer" style="display:none;padding:16px;background:var(--success-light);border-radius:8px;border-left:3px solid #22c55e;margin-top:12px;">
+                    <strong>📖 正确答案：</strong>
+                    <div id="wp-answer-content" style="margin-top:8px;font-size:14px;"></div>
+                </div>
+            </div>
+            <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+                <button class="quiz-btn secondary" id="wp-reveal-btn" onclick="revealAnswer()">👁 查看答案</button>
+                <button class="quiz-btn correct" id="wp-correct-btn" onclick="markWP(1)" style="display:none;">✅ 已掌握</button>
+                <button class="quiz-btn wrong" id="wp-wrong-btn" onclick="markWP(0)" style="display:none;">❌ 再练一次</button>
+            </div>
+        </div>
+        <div id="wp-result" style="display:none;text-align:center;padding:20px;"></div>
+    </div>
+
+    <!-- ====== 模块 2: 艾宾浩斯复习计划 ====== -->
+    <div class="wrong-form" id="ebbinghaus">
+        <h3>🧠 艾宾浩斯遗忘曲线复习 <span style="font-weight:400;font-size:13px;color:var(--text-secondary);">— 科学间隔，永久记忆</span></h3>
+        <p style="font-size:13px;color:var(--text-secondary);margin-bottom:16px;">基于遗忘曲线（1-2-4-7-15天）自动安排复习。到期知识点下方会显示待复习卡片。</p>
+        <!-- 今日到期统计 -->
+        <div id="eb-stats" style="margin-bottom:16px;font-size:14px;">加载中...</div>
+        <!-- 闪卡到期列表 -->
+        <div id="eb-due-list" style="margin-bottom:16px;"></div>
+        <!-- 复习阶段指示器 -->
+        <div class="ebbinghaus-timeline" id="eb-timeline">
+            <div class="eb-stage" data-day="1"><div class="eb-dot"></div><span>1天</span></div>
+            <div class="eb-stage" data-day="2"><div class="eb-dot"></div><span>2天</span></div>
+            <div class="eb-stage" data-day="4"><div class="eb-dot"></div><span>4天</span></div>
+            <div class="eb-stage" data-day="7"><div class="eb-dot"></div><span>7天</span></div>
+            <div class="eb-stage" data-day="15"><div class="eb-dot"></div><span>15天</span></div>
+        </div>
+        <div style="text-align:center;margin-top:12px;">
+            <a href="/flashcards" class="quick-link secondary" style="font-size:13px;">去闪卡复习 →</a>
+        </div>
+    </div>
+
+    <!-- ====== 模块 3: 薄弱点突破 ====== -->
+    <div class="wrong-form" id="weak-break">
+        <h3>🎯 薄弱点专项突破 <span style="font-weight:400;font-size:13px;color:var(--text-secondary);">— 哪里弱就练哪里</span></h3>
+        <div id="weak-content">加载中...</div>
+    </div>
+
+    <!-- ====== 模块 4: 每日智能训练计划 ====== -->
+    <div class="wrong-form" id="daily-plan">
+        <h3>📋 今日智能训练计划 <span style="font-weight:400;font-size:13px;color:var(--text-secondary);">— 一键开启今日复习</span></h3>
+        <div id="daily-plan-content">加载中...</div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ── 页面滚动 ──
+function scrollToSection(id) { document.getElementById(id).scrollIntoView({behavior:'smooth',block:'start'}); }
+
+// ═══════════════════════════════════════════════
+// 模块 1: 错题重练
+// ═══════════════════════════════════════════════
+let wpProblems = [], wpIdx = -1, wpMastered = 0, wpRetry = [];
+
+async function startWrongPractice() {
+    const subject = document.getElementById('wp-subject').value;
+    const count = document.getElementById('wp-count').value;
+    const res = await fetch(`/api/reinforce/wrong-practice?subject=${encodeURIComponent(subject)}&count=${count}`);
+    const data = await res.json();
+    if (!data.problems.length) {
+        alert('该科目暂无错题。先去错题本收集一些错题吧！');
+        return;
+    }
+    wpProblems = data.problems; wpIdx = -1; wpMastered = 0; wpRetry = [];
+    document.getElementById('wp-area').style.display = 'block';
+    document.getElementById('wp-result').style.display = 'none';
+    document.getElementById('wp-stats').textContent = `共 ${data.total} 道错题，本轮练习 ${data.problems.length} 道`;
+    showWPQuestion();
+}
+
+function showWPQuestion() {
+    wpIdx++;
+    if (wpIdx >= wpProblems.length) {
+        showWPResult();
+        return;
+    }
+    const p = wpProblems[wpIdx];
+    document.getElementById('wp-progress').textContent = `第 ${wpIdx+1} / ${wpProblems.length} 题`;
+    document.getElementById('wp-subject-tag').textContent = p.subject || '';
+    document.getElementById('wp-title').textContent = p.title || '';
+    document.getElementById('wp-body').innerHTML = (p.body_clean || p.body_html || '').replace(/\\n/g,'<br>');
+    document.getElementById('wp-answer').style.display = 'none';
+    document.getElementById('wp-reveal-btn').style.display = '';
+    document.getElementById('wp-correct-btn').style.display = 'none';
+    document.getElementById('wp-wrong-btn').style.display = 'none';
+}
+
+function revealAnswer() {
+    const p = wpProblems[wpIdx];
+    document.getElementById('wp-answer-content').innerHTML = (p.body_full || p.body_html || '').replace(/\\n/g,'<br>');
+    document.getElementById('wp-answer').style.display = 'block';
+    document.getElementById('wp-reveal-btn').style.display = 'none';
+    document.getElementById('wp-correct-btn').style.display = '';
+    document.getElementById('wp-wrong-btn').style.display = '';
+}
+
+function markWP(mastered) {
+    if (mastered) { wpMastered++; }
+    else { wpRetry.push(wpProblems[wpIdx]); }
+    showWPQuestion();
+}
+
+function showWPResult() {
+    document.getElementById('wp-area').style.display = 'none';
+    document.getElementById('wp-result').style.display = 'block';
+    const total = wpProblems.length;
+    const pct = Math.round(wpMastered / Math.max(total,1) * 100);
+    const emoji = pct >= 80 ? '🎉' : pct >= 50 ? '💪' : '📚';
+    document.getElementById('wp-result').innerHTML = `
+        <h3>${emoji} 本轮完成</h3>
+        <p>已掌握 <strong>${wpMastered}</strong> / ${total}（${pct}%）</p>
+        ${wpRetry.length > 0 ? `<p style="color:#ef4444;font-size:14px;">${wpRetry.length} 道题还需再练</p>` : '<p style="color:#22c55e;">全部掌握！</p>'}
+        <button class="quiz-btn primary" onclick="startWrongPractice()" style="margin-top:12px;">再来一轮</button>
+    `;
+    // 记录活跃
+    if (wpMastered > 0) {
+        const today = new Date().toISOString().split('T')[0];
+        const activity = JSON.parse(localStorage.getItem('daily_activity') || '{}');
+        activity[today] = (activity[today] || 0) + 1;
+        localStorage.setItem('daily_activity', JSON.stringify(activity));
+    }
+}
+
+// ═══════════════════════════════════════════════
+// 模块 2: 艾宾浩斯复习计划
+// ═══════════════════════════════════════════════
+(function loadEbbinghaus() {
+    const today = new Date().toISOString().split('T')[0];
+    const sm2 = JSON.parse(localStorage.getItem('flashcard_sm2') || '{}');
+    let totalDue = 0, dueBySubject = {};
+    const allDueCards = [];
+
+    for (const subj in sm2) {
+        dueBySubject[subj] = {due: 0, total: Object.keys(sm2[subj]).length};
+        for (const card in sm2[subj]) {
+            const entry = sm2[subj][card];
+            if (entry.dueDate && entry.dueDate <= today) {
+                dueBySubject[subj].due++;
+                totalDue++;
+                if (allDueCards.length < 10) {
+                    allDueCards.push({subject: subj, front: card, interval: entry.interval, n: entry.n, dueDate: entry.dueDate});
+                }
+            }
+        }
+    }
+
+    const names = {'complex-analysis':'复变函数','abstract-algebra':'抽象代数','operations-research':'运筹学','data-structures-c':'数据结构C'};
+    const colors = {'complex-analysis':'🔵','abstract-algebra':'🟢','operations-research':'🟠','data-structures-c':'🔴'};
+
+    let statsHtml = totalDue > 0
+        ? `<span style="color:#ef4444;">📌 今日有 <strong>${totalDue}</strong> 张闪卡到期待复习</span>`
+        : '<span style="color:#22c55e;">✅ 今日暂无到期闪卡，继续保持！</span>';
+    document.getElementById('eb-stats').innerHTML = statsHtml;
+
+    let listHtml = '';
+    for (const subj in dueBySubject) {
+        const d = dueBySubject[subj];
+        if (d.due > 0) {
+            const name = names[subj] || subj;
+            listHtml += `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px;margin-bottom:6px;font-size:14px;">
+                <span>${colors[subj]||'📚'} <strong>${name}</strong></span>
+                <span style="color:#ef4444;">${d.due} 张到期</span>
+                <span style="color:var(--text-secondary);font-size:12px;">/ ${d.total} 张</span>
+                <a href="/flashcards?subject=${subj}" style="margin-left:auto;font-size:12px;color:var(--blue);">去复习 →</a>
+            </div>`;
+        }
+    }
+    if (!listHtml) listHtml = '<p style="color:var(--text-secondary);font-size:14px;">所有闪卡都在计划中，暂无到期卡片。</p>';
+    document.getElementById('eb-due-list').innerHTML = listHtml;
+
+    // 复习阶段可视化（基于闪卡数据中各阶段的卡片数）
+    const stages = [1, 2, 4, 7, 15];
+    stages.forEach(day => {
+        let count = 0;
+        for (const subj in sm2) {
+            for (const card in sm2[subj]) {
+                if (sm2[subj][card].interval === day) count++;
+            }
+        }
+        const el = document.querySelector(`.eb-stage[data-day="${day}"]`);
+        if (el && count > 0) el.classList.add('active');
+        if (el) el.title = `${count} 张卡在此阶段`;
+    });
+})();
+
+// ═══════════════════════════════════════════════
+// 模块 3: 薄弱点突破
+// ═══════════════════════════════════════════════
+(async function loadWeakBreak() {
+    const res = await fetch('/api/insights');
+    const d = await res.json();
+    const container = document.getElementById('weak-content');
+
+    // 各科错题分布 + 建议
+    const colors = {'复变函数':'#3b82f6','抽象代数':'#10b981','运筹学':'#f59e0b','数据结构 C':'#ef4444'};
+    let bars = '';
+    let total = d.wrong_total || 1;
+    for (const [subj, count] of Object.entries(d.wrong_counts || {})) {
+        const pct = Math.round(count / total * 100);
+        bars += `<div style="display:flex;align-items:center;gap:8px;margin:6px 0;">
+            <span style="width:80px;font-size:13px;">${subj}</span>
+            <div style="flex:1;height:24px;background:var(--border);border-radius:12px;overflow:hidden;">
+                <div style="width:${Math.max(pct,2)}%;height:100%;background:${colors[subj]||'#6b7280'};border-radius:12px;display:flex;align-items:center;padding-left:8px;font-size:12px;color:#fff;">${count > 0 ? count+'题' : ''}</div>
+            </div>
+        </div>`;
+    }
+
+    // 测验正确率趋势（从 localStorage 读取）
+    const quizHistory = JSON.parse(localStorage.getItem('quiz_history') || '[]');
+    let trendHtml = '';
+    const subjScores = {};
+    quizHistory.forEach(q => {
+        if (!subjScores[q.subject]) subjScores[q.subject] = [];
+        subjScores[q.subject].push(Math.round(q.correct/q.total*100));
+    });
+    for (const [subj, scores] of Object.entries(subjScores)) {
+        if (subj === '综合' || !scores.length) continue;
+        const avg = Math.round(scores.reduce((a,b)=>a+b)/scores.length);
+        const recent = scores.slice(-5);
+        const miniBars = recent.map(s => {
+            const h = Math.max(s/5, 4);
+            return `<div style="width:14px;height:${h}px;background:${colors[subj]||'#6b7280'};border-radius:3px 3px 0 0;opacity:${s/100+.2};" title="${s}%"></div>`;
+        }).join('');
+        trendHtml += `<div style="display:flex;align-items:center;gap:10px;margin:8px 0;font-size:13px;">
+            <span style="width:80px;">${subj}</span>
+            <div style="display:flex;align-items:flex-end;gap:3px;height:60px;">${miniBars}</div>
+            <span style="font-weight:600;color:${avg>=60?'#22c55e':'#ef4444'};">${avg}%</span>
+        </div>`;
+    }
+
+    container.innerHTML = `
+        ${d.wrong_total > 0 ? `
+        <div style="margin-bottom:16px;">
+            <h4 style="font-size:14px;margin-bottom:8px;">📊 错题分布</h4>
+            ${bars}
+            ${d.max_subject ? `<p style="margin-top:8px;font-size:14px;">🔴 最弱科目：<strong>${d.max_subject}</strong> — <a href="${d.quick_links[d.max_subject]||'#'}" style="color:var(--blue);">去复习 →</a></p>` : ''}
+        </div>` : '<p style="color:var(--text-secondary);">暂无错题数据，多做测验收集错题吧。</p>'}
+        ${Object.keys(subjScores).length > 0 ? `
+        <div style="margin-top:16px;">
+            <h4 style="font-size:14px;margin-bottom:8px;">📈 测验正确率趋势（最近5次）</h4>
+            ${trendHtml}
+        </div>` : ''}
+        ${d.max_subject && d.wrong_total > 0 ? `
+        <div style="margin-top:16px;padding:12px;background:var(--warning-light);border-radius:8px;font-size:14px;">
+            <strong>💡 针对「${d.max_subject}」的突破建议：</strong>
+            <ul style="margin:4px 0 0 20px;">${(d.suggestions||[]).map(s => `<li>${s}</li>`).join('')}</ul>
+        </div>` : ''}
+        <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+            <a href="/quiz" class="quick-link secondary" style="font-size:13px;">🎯 去测验</a>
+            <a href="/wrong" class="quick-link secondary" style="font-size:13px;">🔴 去错题本</a>
+        </div>
+    `;
+})();
+
+// ═══════════════════════════════════════════════
+// 模块 4: 每日智能训练计划
+// ═══════════════════════════════════════════════
+(async function loadDailyPlan() {
+    const res = await fetch('/api/reinforce/daily-plan');
+    const d = await res.json();
+    const container = document.getElementById('daily-plan-content');
+    let html = '<div style="display:flex;flex-direction:column;gap:8px;">';
+    d.plan.forEach((item, i) => {
+        html += `<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--surface);border:1px solid var(--border);border-radius:12px;transition:.15s;" id="plan-item-${i}">
+            <span style="font-size:24px;">${item.icon}</span>
+            <div style="flex:1;">
+                <div style="font-weight:600;font-size:14px;">${item.title}</div>
+                <div style="font-size:12px;color:var(--text-secondary);">${item.desc}</div>
+            </div>
+            <a href="${item.link}" class="quiz-btn primary" style="text-decoration:none;font-size:13px;">开始 →</a>
+            <button onclick="this.closest('div').style.opacity='.4';this.closest('div').querySelector('a').textContent='✅';" style="background:none;border:none;cursor:pointer;font-size:16px;padding:4px;" title="标记完成">⬜</button>
+        </div>`;
+    });
+    // 从 localStorage 获取今日完成情况
+    const today = new Date().toISOString().split('T')[0];
+    const activity = JSON.parse(localStorage.getItem('daily_activity') || '{}');
+    const todayActive = activity[today] || 0;
+    html += `</div>
+        <div style="margin-top:12px;font-size:13px;color:var(--text-secondary);text-align:center;">
+            今日已完成 ${todayActive} 项学习活动
+            ${todayActive >= 3 ? '🎉 太棒了！' : todayActive >= 1 ? '💪 继续加油！' : '📖 开始今天的学习吧！'}
+        </div>`;
+    container.innerHTML = html;
+})();
+</script>
+{% endblock %}

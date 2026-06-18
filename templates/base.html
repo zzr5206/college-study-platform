@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}大学生智能学习平台{% endblock %}</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#2563eb">
+    <!-- 暗色模式防闪烁 -->
+    <script>
+        (function() {
+            var t = localStorage.getItem('theme');
+            if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+        })();
+    </script>
+</head>
+<body>
+    <!-- 移动端汉堡菜单按钮 -->
+    <button class="hamburger" id="hamburger-btn" onclick="toggleMobileMenu()" aria-label="菜单">☰</button>
+    <!-- 移动端遮罩 -->
+    <div class="mobile-overlay" id="mobile-overlay" onclick="toggleMobileMenu()"></div>
+    <nav class="navbar" id="navbar">
+        <a href="/" class="brand">📐 大学生智能学习平台</a>
+        {% for key, info in subjects.items() %}
+        <a href="/subject/{{ key }}">{{ info.icon }} {{ info.name }}</a>
+        {% endfor %}
+        <a href="/practice">✏️ 练习</a>
+        <a href="/wrong">🔴 错题本</a>
+        <a href="/quiz">🎯 测验</a>
+        <a href="/flashcards">🃏 闪卡</a>
+        <a href="/solve">📸 拍题</a>
+        <a href="/ask">🤖 问答</a>
+        <a href="/videos">🎬 视频</a>
+        <a href="/progress">📊 追踪</a>
+        <a href="/reinforce">💪 加强训练</a>
+        <a href="/review">⚡ 考前速查</a>
+        <button class="theme-toggle" id="theme-toggle" title="切换暗色/亮色模式" onclick="toggleTheme()">🌙</button>
+        <div class="search-wrap">
+            <input type="text" id="search-input" placeholder="搜索知识点…" autocomplete="off">
+            <div class="search-dropdown" id="search-dropdown"></div>
+        </div>
+    </nav>
+
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+    <script src="/static/timer.js"></script>
+    <script src="/static/achievements.js"></script>
+    <script src="/static/notifications.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            renderMathInElement(document.body, {
+                delimiters: [
+                    {left: "$$", right: "$$", display: true},
+                    {left: "$", right: "$", display: false}
+                ]
+            });
+        });
+    </script>
+    <script>
+    // ── 移动端菜单 ──
+    function toggleMobileMenu() {
+        document.getElementById('navbar').classList.toggle('mobile-open');
+        document.getElementById('mobile-overlay').classList.toggle('show');
+        var btn = document.getElementById('hamburger-btn');
+        btn.textContent = btn.textContent === '☰' ? '✕' : '☰';
+    }
+    // ── 主题切换 ──
+    function toggleTheme() {
+        var html = document.documentElement;
+        var btn = document.getElementById('theme-toggle');
+        if (html.getAttribute('data-theme') === 'dark') {
+            html.removeAttribute('data-theme');
+            localStorage.setItem('theme', 'light');
+            btn.textContent = '🌙';
+        } else {
+            html.setAttribute('data-theme', 'dark');
+            localStorage.setItem('theme', 'dark');
+            btn.textContent = '☀️';
+        }
+    }
+    (function() {
+        var btn = document.getElementById('theme-toggle');
+        if (document.documentElement.getAttribute('data-theme') === 'dark') {
+            btn.textContent = '☀️';
+        }
+    })();
+    // ── 回到顶部按钮 ──
+    const btt = document.getElementById('back-to-top');
+    window.addEventListener('scroll', () => { btt.style.display = window.scrollY > 400 ? '' : 'none'; });
+    // ── 全局搜索 ──
+    const si = document.getElementById('search-input');
+    const sd = document.getElementById('search-dropdown');
+    let searchTimer;
+    si.addEventListener('input', () => {
+        clearTimeout(searchTimer);
+        const q = si.value.trim();
+        if (q.length < 2) { sd.style.display = 'none'; return; }
+        searchTimer = setTimeout(async () => {
+            const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+            const data = await res.json();
+            if (!data.results.length) { sd.innerHTML = '<div class="search-empty">未找到相关内容</div>'; sd.style.display = 'block'; return; }
+            sd.innerHTML = data.results.map(r =>
+                `<a href="/subject/${r.key}" class="search-item">
+                    <span>${r.icon} ${r.subject}</span>
+                    <strong>${r.heading || r.snippet}</strong>
+                    <small>${r.snippet.substring(0,80)}</small>
+                </a>`
+            ).join('');
+            sd.style.display = 'block';
+        }, 250);
+    });
+    document.addEventListener('click', (e) => { if (!e.target.closest('.search-wrap')) sd.style.display = 'none'; });
+
+    // ── 键盘快捷键 ──
+    document.addEventListener('keydown', function(e) {
+        // 不在输入框中时生效
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+        // Ctrl+K / Cmd+K：聚焦搜索
+        if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+            e.preventDefault();
+            document.getElementById('search-input').focus();
+        }
+        // ?：显示快捷键帮助
+        if (e.key === '?') {
+            e.preventDefault();
+            showShortcutHelp();
+        }
+        // Escape：关闭搜索、移动菜单
+        if (e.key === 'Escape') {
+            document.getElementById('search-dropdown').style.display = 'none';
+            var nav = document.getElementById('navbar');
+            if (nav && nav.classList.contains('mobile-open')) toggleMobileMenu();
+            var notesPanel = document.getElementById('notes-panel');
+            if (notesPanel && notesPanel.classList.contains('open')) {
+                notesPanel.classList.remove('open');
+                var fab = document.getElementById('notes-fab');
+                if (fab) fab.style.display = '';
+            }
+        }
+    });
+
+    function showShortcutHelp() {
+        var existing = document.getElementById('shortcut-modal');
+        if (existing) { existing.remove(); return; }
+        var modal = document.createElement('div');
+        modal.id = 'shortcut-modal';
+        modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999;display:flex;align-items:center;justify-content:center;';
+        modal.onclick = function(e) { if (e.target === modal) modal.remove(); };
+        modal.innerHTML = '<div style="background:var(--surface);border-radius:16px;padding:28px;max-width:420px;width:90%;box-shadow:0 16px 48px rgba(0,0,0,.2);">' +
+            '<h3 style="margin-bottom:16px;">⌨ 键盘快捷键</h3>' +
+            '<div style="display:grid;gap:8px;font-size:14px;">' +
+            '<div><kbd style="background:var(--code-bg);padding:2px 8px;border-radius:4px;">Ctrl+K</kbd> 聚焦搜索</div>' +
+            '<div><kbd style="background:var(--code-bg);padding:2px 8px;border-radius:4px;">?</kbd> 显示/隐藏此帮助</div>' +
+            '<div><kbd style="background:var(--code-bg);padding:2px 8px;border-radius:4px;">Esc</kbd> 关闭面板/菜单</div>' +
+            '<div><kbd style="background:var(--code-bg);padding:2px 8px;border-radius:4px;">Space</kbd> 翻转闪卡</div>' +
+            '<div><kbd style="background:var(--code-bg);padding:2px 8px;border-radius:4px;">1</kbd> 忘了 / <kbd style="background:var(--code-bg);padding:2px 8px;border-radius:4px;">2</kbd> 模糊 / <kbd style="background:var(--code-bg);padding:2px 8px;border-radius:4px;">3</kbd> 记得</div>' +
+            '</div>' +
+            '<button onclick="document.getElementById(\'shortcut-modal\').remove()" style="margin-top:16px;padding:8px 20px;border-radius:8px;border:1px solid var(--border);background:var(--surface);cursor:pointer;color:var(--text);">关闭</button>' +
+            '</div>';
+        document.body.appendChild(modal);
+    }
+    // 闪卡快捷键: 1=忘了 2=模糊 3=记得
+    document.addEventListener('keydown', function(e) {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+        if (e.key === ' ' && document.getElementById('flashcard')) {
+            e.preventDefault();
+            document.getElementById('flashcard').click();
+        }
+        var ratingBtns = document.querySelectorAll('#rating-buttons .quiz-btn');
+        if (ratingBtns.length && document.getElementById('rating-buttons').style.display !== 'none') {
+            if (e.key === '1') { e.preventDefault(); ratingBtns[0].click(); }
+            if (e.key === '2') { e.preventDefault(); ratingBtns[1].click(); }
+            if (e.key === '3') { e.preventDefault(); ratingBtns[2].click(); }
+        }
+    });
+    </script>
+    <!-- 回到顶部 -->
+    <button id="back-to-top" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="回到顶部">↑</button>
+
+    {% block scripts %}{% endblock %}
+    <!-- PWA Service Worker 注册 -->
+    <script>
+        if ('serviceWorker' in navigator && window.location.hostname === '127.0.0.1') {
+            navigator.serviceWorker.register('/static/sw.js').catch(function() {});
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,271 @@
+{% extends "base.html" %}
+{% block title %}{{ subject.name }} — 期末复习{% endblock %}
+{% block content %}
+<div class="container">
+    <!-- 学习路径 -->
+    {% set paths = {
+        'complex-analysis': ['复数与解析函数（C-R 方程）','Cauchy 积分定理与公式','Taylor 与 Laurent 级数','孤立奇点分类','留数定理与实积分','共形映射（Möbius 变换）'],
+        'abstract-algebra': ['群的定义、子群、循环群','Lagrange 定理与陪集','正规子群与商群','同态与同构定理','Sylow 定理及其应用','环、理想、商环、域','多项式环与域扩张'],
+        'operations-research': ['线性规划建模与图解法','单纯形法（计算流程）','对偶理论与灵敏度分析','运输与指派问题','动态规划','排队论、博弈论、存储论'],
+        'data-structures-c': ['顺序表与链表（基本操作）','栈与队列','二叉树与 BST','AVL 树与 B 树','哈夫曼树与编码','图的 DFS/BFS 和最短路径','查找（二分/哈希）与排序','KMP 与拓扑排序'],
+        'english-cet': ['核心高频词汇（80词速记）','听力三大题型 + 逻辑词定位法','阅读：选词填空 + 长篇匹配 + 仔细阅读','写作三段式模板 + 词汇升级','翻译拆分法 + 中国文化特色词','真题模拟 + 错题复盘'],
+    } %}
+    {% set path = paths.get(key, []) %}
+    {% if path %}
+    <div class="learning-path" id="learning-path">
+        <h4>📖 推荐学习路径 <span style="font-size:11px;color:var(--gray-600);font-weight:400;">（点击打勾追踪进度）</span></h4>
+        <div class="path-steps">
+            {% for step in path %}
+            <div class="path-step" data-step="{{ loop.index }}" onclick="toggleStep(this)" id="step-{{ loop.index }}">
+                <span class="step-check">✓</span>
+                <span>{{ loop.index }}. {{ step }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 考试信息条 -->
+    <div class="exam-info-bar" id="exam-info-bar">
+        <div class="exam-info-item">
+            <span class="exam-info-icon">📋</span>
+            <span>考点数：<strong id="exam-topic-count">--</strong></span>
+        </div>
+        <div class="exam-info-item">
+            <span class="exam-info-icon">⏱</span>
+            <span>建议复习：<strong>2-3 小时</strong></span>
+        </div>
+        <div class="exam-info-item">
+            <span class="exam-info-icon">📅</span>
+            <span>距考试：<strong id="exam-countdown-subj">--</strong></span>
+        </div>
+        <button class="exam-mode-btn" id="exam-mode-btn" onclick="toggleExamMode()" title="切换急救模式：只显示公式、易错点、速记">
+            🚨 急救模式
+        </button>
+    </div>
+
+    <div class="content-layout">
+        <!-- 左侧科目导航 -->
+        <aside class="sidebar">
+            <h3 style="font-size:14px;margin-bottom:8px;color:var(--gray-600);padding:0 12px;">科目切换</h3>
+            {% for k, info in subjects.items() %}
+            <a href="/subject/{{ k }}" {% if k == key %}class="active"{% endif %}>{{ info.icon }} {{ info.name }}</a>
+            {% endfor %}
+        </aside>
+
+        <!-- 中间正文 -->
+        <article class="article" id="article-content">
+            {{ content | safe }}
+        </article>
+
+        <!-- 右侧考点导航 -->
+        <aside class="toc-sidebar" id="toc-sidebar">
+            <h4 style="font-size:13px;margin-bottom:8px;color:var(--gray-600);">📑 考点导航</h4>
+            <nav id="toc-nav"></nav>
+        </aside>
+    </div>
+
+    <!-- 考前自测清单 -->
+    <div class="wrong-form" id="exam-checklist" style="margin-top:24px;">
+        <h3>✅ 考前自测清单 <span style="font-weight:400;font-size:12px;color:var(--text-secondary);">（逐项检查，确保无遗漏）</span></h3>
+        <div id="checklist-items" style="margin-top:8px;"></div>
+        <div style="margin-top:8px;font-size:12px;color:var(--text-secondary);">
+            进度：<span id="checklist-progress">0/0</span>
+        </div>
+    </div>
+
+    <!-- 底部 -->
+    <div style="margin-top:24px;display:flex;gap:12px;flex-wrap:wrap;">
+        <a href="/flashcards?subject={{ key }}" class="quick-link secondary">🃏 闪卡复习</a>
+        <a href="/quiz?subject={{ key }}" class="quick-link secondary">🎯 测验</a>
+        <a href="/reinforce" class="quick-link secondary">💪 加强训练</a>
+        <a href="/ask" class="quick-link secondary">🤖 提问</a>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="/static/notes.js"></script>
+<script>
+// ── 学习路径进度 ──
+(function() {
+    const key = '{{ key }}';
+    const saved = JSON.parse(localStorage.getItem('learning_path_' + key) || '{}');
+    document.querySelectorAll('.path-step').forEach(step => {
+        if (saved[step.dataset.step]) step.classList.add('done');
+    });
+})();
+function toggleStep(el) {
+    el.classList.toggle('done');
+    const key = '{{ key }}';
+    const saved = JSON.parse(localStorage.getItem('learning_path_' + key) || '{}');
+    saved[el.dataset.step] = el.classList.contains('done') ? 1 : 0;
+    localStorage.setItem('learning_path_' + key, JSON.stringify(saved));
+}
+
+// ── 考点导航 + 重要性标注 ──
+const HIGH_FREQ_KEYWORDS = ['Cauchy','C-R','留数','Sylow','Lagrange','正规子群','同构','单纯形','对偶','动态规划','Dijkstra','AVL','KMP','二叉树','C-R 方程','Cauchy 积分','Laurent','奇点','Möbius','群的定义','商群','理想','域','线性规划','指派','排队论','存储论','栈与队列','哈希','排序','共形映射'];
+const EXAM_HOT_ICON = ' 🔥';
+
+(function() {
+    const article = document.getElementById('article-content');
+    const toc = document.getElementById('toc-nav');
+    const headings = article.querySelectorAll('h2, h3');
+    if (headings.length < 3) { document.getElementById('toc-sidebar').style.display = 'none'; return; }
+    let html = '';
+    let topicCount = 0;
+    headings.forEach((h, i) => {
+        const id = 'heading-' + i;
+        h.id = id;
+        if (h.tagName === 'H2') topicCount++;
+        const text = h.textContent.trim().substring(0, 40);
+        const isHot = HIGH_FREQ_KEYWORDS.some(kw => text.includes(kw));
+        const indent = h.tagName === 'H3' ? 'padding-left:16px;' : '';
+        const star = isHot ? ' <span style="color:#f59e0b;font-size:10px;">★★★</span>' : '';
+        html += `<a href="#${id}" class="toc-link" style="font-size:${h.tagName==='H3'?'12px':'13px'};${indent}display:block;padding:3px 0;text-decoration:none;border-left:2px solid transparent;padding-left:8px;">${text}${star}</a>`;
+    });
+    toc.innerHTML = html;
+    document.getElementById('exam-topic-count').textContent = topicCount;
+
+    // 滚动高亮
+    const links = toc.querySelectorAll('.toc-link');
+    window.addEventListener('scroll', () => {
+        let current = '';
+        headings.forEach((h, i) => {
+            if (h.getBoundingClientRect().top < 120) current = '#heading-' + i;
+        });
+        links.forEach(l => {
+            l.style.borderLeftColor = 'transparent';
+            l.style.color = 'var(--text-secondary)';
+            if (l.getAttribute('href') === current) {
+                l.style.borderLeftColor = 'var(--blue)';
+                l.style.color = 'var(--blue)';
+            }
+        });
+    });
+
+    toc.addEventListener('click', (e) => {
+        if (e.target.closest('A')) {
+            e.preventDefault();
+            const a = e.target.closest('A');
+            const id = a.getAttribute('href').substring(1);
+            document.getElementById(id).scrollIntoView({behavior:'smooth',block:'start'});
+        }
+    });
+
+    // 考试倒计时
+    const examDates = JSON.parse(localStorage.getItem('exam_dates') || '{"复变函数":"2025-07-01","抽象代数":"2025-07-03","运筹学":"2025-07-05","数据结构 C":"2025-07-08","英语四级":"2025-06-14"}');
+    const subjNameMap = {'complex-analysis':'复变函数','abstract-algebra':'抽象代数','operations-research':'运筹学','data-structures-c':'数据结构C','english-cet':'英语四级'};
+    const subjName = subjNameMap['{{ key }}'] || '';
+    const examDateStr = examDates[subjName];
+    if (examDateStr) {
+        const examDate = new Date(examDateStr);
+        const diff = Math.ceil((examDate - new Date()) / (1000*60*60*24));
+        const el = document.getElementById('exam-countdown-subj');
+        if (diff < 0) { el.textContent = '已过'; el.style.color = '#6b7280'; }
+        else if (diff === 0) { el.textContent = '今天！'; el.style.color = '#ef4444'; }
+        else { el.textContent = diff + ' 天'; el.style.color = diff <= 3 ? '#ef4444' : diff <= 7 ? '#f59e0b' : '#22c55e'; }
+    }
+
+    // 恢复上次阅读位置
+    const lastPos = localStorage.getItem('reading_pos_{{ key }}');
+    if (lastPos) {
+        const btn = document.createElement('div');
+        btn.style.cssText = 'position:fixed;bottom:20px;left:20px;background:var(--surface);padding:8px 16px;border-radius:20px;box-shadow:0 2px 10px rgba(0,0,0,.1);cursor:pointer;font-size:13px;z-index:50;';
+        btn.textContent = '📍 继续上次阅读';
+        btn.onclick = () => { window.scrollTo({top:parseInt(lastPos),behavior:'smooth'}); btn.remove(); };
+        document.body.appendChild(btn);
+    }
+    window.addEventListener('beforeunload', () => {
+        localStorage.setItem('reading_pos_{{ key }}', window.scrollY);
+    });
+})();
+
+// ── 急救模式：只显示公式/易错点/速记 ──
+let examMode = false;
+function toggleExamMode() {
+    examMode = !examMode;
+    const article = document.getElementById('article-content');
+    const btn = document.getElementById('exam-mode-btn');
+    const allH2 = article.querySelectorAll('h2');
+    const allH3 = article.querySelectorAll('h3');
+    const allP = article.querySelectorAll('p');
+    const allPre = article.querySelectorAll('pre');
+    const allUl = article.querySelectorAll('ul');
+    const allOl = article.querySelectorAll('ol');
+    const allTable = article.querySelectorAll('table');
+    const allBlockquote = article.querySelectorAll('blockquote');
+
+    if (examMode) {
+        btn.textContent = '📖 完整模式';
+        btn.style.background = '#ef4444'; btn.style.color = '#fff';
+        // 隐藏所有内容
+        [allP, allPre, allUl, allOl, allTable].forEach(coll => coll.forEach(el => el.style.display = 'none'));
+        // 只显示关键内容：h2标题、包含公式/易错/速记/必背/考前/核心的段落前后
+        const KEEP_PATTERNS = ['公式','易错','速记','必背','核心','考前','高频','定理','考点','定义','题型'];
+        allH2.forEach(h => h.style.display = '');
+        allH3.forEach(h => h.style.display = '');
+        allBlockquote.forEach(b => b.style.display = '');
+        // 保留包含关键模式的段落和前后的兄弟元素
+        article.querySelectorAll('p, li, pre').forEach(el => {
+            const text = el.textContent;
+            if (KEEP_PATTERNS.some(p => text.includes(p))) {
+                el.style.display = '';
+                // 显示前面的同级标题
+                let prev = el.previousElementSibling;
+                while (prev && (prev.tagName === 'H3' || prev.tagName === 'H2')) {
+                    prev.style.display = '';
+                    prev = prev.previousElementSibling;
+                }
+            }
+        });
+    } else {
+        btn.textContent = '🚨 急救模式';
+        btn.style.background = ''; btn.style.color = '';
+        [allP, allPre, allUl, allOl, allTable, allH2, allH3, allBlockquote].forEach(coll => coll.forEach(el => el.style.display = ''));
+    }
+}
+
+// ── 考前自测清单 ──
+(function buildChecklist() {
+    const CL_MAP = {
+        'complex-analysis': [
+            '能默写 C-R 方程并判断解析区域','能计算 Cauchy 积分（一阶和高阶公式）','会做 Taylor/Laurent 展开并写清适用环域','能分类孤立奇点（可去/极点/本性）','会算一阶和 m 阶极点的留数','能用留数定理算三种实积分','会用 Rouché 定理判断根的个数','能构造 Möbius 变换和共形映射'
+        ],
+        'abstract-algebra': [
+            '能写群的定义和子群判别法','能叙述 Lagrange 定理并应用','能判断正规子群并构造商群','能叙述第一同构定理','能使用 Sylow 三定理判断群非单','能区分环/整环/域并判断理想类型','会用 Eisenstein 判别法证不可约','知道最大理想↔域 素理想↔整环的对应'
+        ],
+        'operations-research': [
+            '能建立线性规划模型（变量+目标+约束）','能手算单纯形法完整流程','会写对偶问题并用互补松弛验证','能做运输问题的表上作业法','能建立动态规划的状态转移方程','会算 M/M/1 排队模型的核心指标','能用 Dijkstra 算法求最短路','会做指派问题的匈牙利法'
+        ],
+        'data-structures-c': [
+            '能写出单链表的基本操作（插入/删除）','会判循环队列的空和满','能手写二叉树三种遍历','能画 AVL 树的四种旋转','会构造哈夫曼树并算 WPL','能写 DFS/BFS 并分析复杂度','能算 KMP 的 next 数组','能区分稳定和不稳定排序算法'
+        ],
+        'english-cet': [
+            '已掌握 80 个核心高频词汇','能用逻辑词定位法做听力','能快速完成选词填空（词性+语法）','掌握了长篇阅读的扫读匹配技巧','能套用写作三段式模板','会用拆分法做翻译题','完成至少 3 套真题模拟','建立了自己的错题复盘流程'
+        ]
+    };
+    const items = CL_MAP['{{ key }}'] || ['完成本页所有知识点的学习','完成配套闪卡复习','完成至少一轮测验'];
+    const saved = JSON.parse(localStorage.getItem('checklist_{{ key }}') || '{}');
+    let html = '', done = 0;
+    items.forEach((item, i) => {
+        const checked = saved[i] ? 'checked' : '';
+        if (saved[i]) done++;
+        html += `<label class="checklist-item" style="display:flex;align-items:center;gap:8px;padding:8px 12px;margin:4px 0;border-radius:8px;cursor:pointer;font-size:14px;transition:.15s;border:1px solid var(--border);">
+            <input type="checkbox" ${checked} onchange="toggleChecklistItem(${i}, this.checked)" style="width:18px;height:18px;cursor:pointer;">
+            <span>${item}</span>
+        </label>`;
+    });
+    document.getElementById('checklist-items').innerHTML = html;
+    document.getElementById('checklist-progress').textContent = done + '/' + items.length;
+    if (done === items.length && items.length > 0) {
+        document.getElementById('checklist-progress').textContent += ' 🎉 全部完成！';
+    }
+})();
+function toggleChecklistItem(idx, checked) {
+    const saved = JSON.parse(localStorage.getItem('checklist_{{ key }}') || '{}');
+    saved[idx] = checked ? 1 : 0;
+    localStorage.setItem('checklist_{{ key }}', JSON.stringify(saved));
+    location.reload(); // 刷新更新进度
+}
+</script>
+{% endblock %}

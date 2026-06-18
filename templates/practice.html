@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}题库练习 — 期末复习{% endblock %}
+{% block content %}
+<div class="container">
+    <h2 style="margin-bottom:16px;">✏️ 题库练习</h2>
+    <p style="color:var(--gray-600);margin-bottom:20px;">点击题目展开详细解答。共含练习题及详细解答。</p>
+
+    <div class="filter-bar">
+        <button class="filter-btn active" onclick="filterAll()">全部</button>
+        <button class="filter-btn" onclick="filterSubject('复变函数')">🔵 复变函数</button>
+        <button class="filter-btn" onclick="filterSubject('抽象代数')">🟢 抽象代数</button>
+        <button class="filter-btn" onclick="filterSubject('运筹学')">🟠 运筹学</button>
+        <button class="filter-btn" onclick="filterSubject('数据结构')">🔴 数据结构</button>
+    </div>
+
+    <div id="problem-list">
+        {{ content | safe }}
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+// 将 markdown 渲染的内容包裹为可折叠块
+(function() {
+    const list = document.getElementById('problem-list');
+    if (!list) return;
+    const html = list.innerHTML;
+
+    // 按 ###  题 分割
+    const parts = html.split(/(?=<h3>)/);
+    let result = '';
+    let currentSubject = '';
+
+    parts.forEach(part => {
+        // 检测科目标题 (h2)
+        const h2Match = part.match(/<h2>(.*?)<\/h2>/);
+        if (h2Match) {
+            currentSubject = h2Match[1];
+            result += part;
+            return;
+        }
+
+        // 题目 (h3 开头如 "### 题 1：..." 或 "### 题 F1：...")
+        const h3Match = part.match(/<h3>(.*?)<\/h3>/);
+        if (h3Match) {
+            const title = h3Match[1].replace(/<[^>]+>/g, '');
+            const subjectTag = currentSubject.includes('复变') ? '复变函数' :
+                               currentSubject.includes('抽象') ? '抽象代数' :
+                               currentSubject.includes('运筹') ? '运筹学' :
+                               currentSubject.includes('数据') ? '数据结构 C' : '';
+            result += `<div class="collapsible" data-subject="${subjectTag}">
+                <div class="collapsible-header" onclick="this.parentElement.classList.toggle('open')">
+                    <span>${title}</span>
+                    <span class="arrow">▼</span>
+                </div>
+                <div class="collapsible-body">${part}</div>
+            </div>`;
+        } else if (part.trim()) {
+            result += part;
+        }
+    });
+
+    list.innerHTML = result;
+
+    // 为每个 collapsible 添加渐进提示按钮
+    document.querySelectorAll('.collapsible').forEach(col => {
+        const body = col.querySelector('.collapsible-body');
+        if (!body) return;
+        const fullHtml = body.innerHTML;
+
+        // 提取提示：思路/步骤/答案 段落
+        const hint1Match = fullHtml.match(/<strong>思路[：:]<\/strong>(.*?)(?=<br>|<strong>|<p>|$)/i);
+        const hint2Match = fullHtml.match(/<strong>步骤[：:]<\/strong>(.*?)(?=<strong>答案|<strong>思路|<p>|$)/is);
+        const hint1 = hint1Match ? hint1Match[1].substring(0, 150) : '仔细读题，从定义出发。';
+        const hint2 = hint2Match ? hint2Match[1].substring(0, 200).replace(/<[^>]+>/g,'') : '回忆相关公式，逐步代入。';
+
+        body.innerHTML = `
+            <div class="hint-area">
+                <button class="hint-btn" onclick="showHint(this, 1)">💡 提示 1</button>
+                <button class="hint-btn" onclick="showHint(this, 2)" style="display:none;">💡 提示 2</button>
+                <button class="hint-btn solution-btn" onclick="showSolution(this)" style="display:none;">📖 完整解答</button>
+                <div class="hint-content" data-hint="1" style="display:none;margin-top:8px;padding:10px;background:#fffbeb;border-radius:6px;font-size:14px;">${hint1}</div>
+                <div class="hint-content" data-hint="2" style="display:none;margin-top:8px;padding:10px;background:#fffbeb;border-radius:6px;font-size:14px;">${hint2}</div>
+                <div class="hint-content solution-content" style="display:none;margin-top:8px;">${fullHtml}</div>
+            </div>`;
+    });
+})();
+
+function showHint(btn, level) {
+    const area = btn.parentElement;
+    area.querySelector(`[data-hint="${level}"]`).style.display = 'block';
+    btn.style.display = 'none';
+    const next = area.querySelector(level === 1 ? '.hint-btn:nth-of-type(2)' : '.solution-btn');
+    if (next) next.style.display = '';
+}
+function showSolution(btn) {
+    const area = btn.parentElement;
+    btn.style.display = 'none';
+    area.querySelector('.solution-content').style.display = 'block';
+    if (window.renderMathInElement) renderMathInElement(area.querySelector('.solution-content'), {delimiters:[{left:"$$",right:"$$",display:true},{left:"$",right:"$",display:false}]});
+}
+
+function filterAll() {
+    document.querySelectorAll('.collapsible').forEach(el => el.style.display = '');
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    document.querySelector('.filter-btn').classList.add('active');
+}
+function filterSubject(subj) {
+    document.querySelectorAll('.collapsible').forEach(el => {
+        el.style.display = el.dataset.subject === subj ? '' : 'none';
+    });
+    document.querySelectorAll('.filter-btn').forEach(b => {
+        b.classList.remove('active');
+        if (b.textContent.includes(subj)) b.classList.add('active');
+    });
+}
+</script>
+{% endblock %}

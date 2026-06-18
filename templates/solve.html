@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+{% block title %}拍题求解 — 期末复习{% endblock %}
+{% block content %}
+<div class="container" style="max-width:900px;">
+    <h2 style="margin-bottom:4px;">📸 拍题求解</h2>
+    <p style="color:var(--text-secondary);margin-bottom:20px;">拍照上传题目 → 获取详细解答 + 全部关联知识点</p>
+
+    <!-- 照片上传 -->
+    <div class="wrong-form" id="upload-section">
+        <h4 style="margin-bottom:12px;">📷 第一步：拍照上传题目</h4>
+        <div class="upload-zone" id="upload-zone">
+            <div class="upload-icon">📸</div>
+            <p style="font-size:15px;margin:4px 0;">点击拍照 / 选择图片 / 拖拽到此处</p>
+            <p style="font-size:12px;color:var(--text-secondary);">支持 JPG / PNG / GIF / WebP，移动端自动调用后置摄像头</p>
+            <input type="file" id="solve-file-input" accept="image/*" capture="environment" style="display:none;">
+        </div>
+        <div class="preview-grid" id="solve-preview-grid" style="justify-content:center;"></div>
+    </div>
+
+    <!-- 描述 -->
+    <div class="wrong-form" style="margin-top:16px;">
+        <h4 style="margin-bottom:12px;">✏️ 第二步：描述题目（帮助精准匹配）</h4>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;">
+            <select id="solve-subject" style="flex:1;min-width:150px;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font-size:14px;">
+                <option value="">选择科目（可选）</option>
+                <option value="复变函数">🔵 复变函数</option>
+                <option value="抽象代数">🟢 抽象代数</option>
+                <option value="运筹学">🟠 运筹学</option>
+                <option value="数据结构 C">🔴 数据结构 C</option>
+            </select>
+            <input type="text" id="solve-desc" placeholder="输入题目关键词，如：Cauchy 积分公式 求留数..."
+                style="flex:3;min-width:200px;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:var(--surface);color:var(--text);">
+            <button onclick="searchSolution()" style="padding:10px 28px;background:var(--blue);color:#fff;border:none;border-radius:8px;font-size:15px;cursor:pointer;white-space:nowrap;">
+                🔍 搜索解答
+            </button>
+        </div>
+        <div style="margin-top:8px;font-size:12px;color:var(--text-secondary);">
+            💡 提示：输入题目涉及的方法名/公式名/题型（如「留数定理」「Lagrange」「AVL旋转」），匹配更精准
+        </div>
+    </div>
+
+    <!-- 结果区 -->
+    <div id="solve-empty" class="empty-state" style="margin-top:24px;">
+        <div class="icon">📸</div>
+        <p>拍照上传题目，输入关键词，点击搜索</p>
+        <p style="font-size:13px;color:var(--text-secondary);">系统自动从题库和知识库匹配</p>
+    </div>
+
+    <div id="solve-results" style="display:none;margin-top:20px;">
+        <div id="solve-stats" style="margin-bottom:16px;font-size:14px;padding:8px 16px;background:var(--surface);border-radius:8px;border:1px solid var(--border);"></div>
+        <div id="solve-cards"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script>
+const zone = document.getElementById('upload-zone');
+const input = document.getElementById('solve-file-input');
+const previewGrid = document.getElementById('solve-preview-grid');
+const fileList = new DataTransfer();
+let ocrText = '';
+
+zone.addEventListener('click', () => input.click());
+zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('drag-over'); });
+zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+zone.addEventListener('drop', (e) => { e.preventDefault(); zone.classList.remove('drag-over'); addFiles(e.dataTransfer.files); });
+input.addEventListener('change', () => addFiles(input.files));
+
+function addFiles(files) {
+    previewGrid.innerHTML = '';
+    const f = files[0];
+    if (!f || !f.type.startsWith('image/')) return;
+    fileList.items.clear(); fileList.items.add(f);
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+        const imgSrc = ev.target.result;
+        previewGrid.innerHTML = `<div class="preview-card" style="width:100%;max-width:400px;height:auto;max-height:280px;position:relative;">
+            <img src="${imgSrc}" style="width:100%;height:auto;max-height:260px;object-fit:contain;border-radius:8px;">
+            <button class="remove-btn" onclick="previewGrid.innerHTML='';fileList.items.clear();ocrText='';" style="position:absolute;top:4px;right:4px;">×</button>
+        </div>
+        <div id="ocr-status" style="width:100%;text-align:center;padding:12px;font-size:13px;color:var(--text-secondary);">
+            🔍 正在识别题目文字...
+        </div>`;
+
+        // 自动 OCR 识别
+        await runOCR(imgSrc);
+    };
+    reader.readAsDataURL(f);
+    input.files = fileList.files;
+}
+
+async function runOCR(imgSrc) {
+    const statusEl = document.getElementById('ocr-status');
+    try {
+        const worker = await Tesseract.createWorker('chi_sim+eng', 1, {
+            logger: (m) => {
+                if (m.status === 'recognizing text' && statusEl) {
+                    const pct = Math.round(m.progress * 100);
+                    statusEl.innerHTML = '🔍 正在识别题目文字... ' + pct + '%';
+                }
+            }
+        });
+        const result = await worker.recognize(imgSrc);
+        ocrText = result.data.text.trim();
+        await worker.terminate();
+
+        if (ocrText && statusEl) {
+            statusEl.innerHTML = '<span style="color:#22c55e;">✅ 识别完成！已自动填入描述框</span>';
+            document.getElementById('solve-desc').value = ocrText.substring(0, 500);
+        } else if (statusEl) {
+            statusEl.innerHTML = '<span style="color:#f59e0b;">⚠️ 未能识别到文字，请手动输入题目描述</span>';
+        }
+    } catch(e) {
+        if (statusEl) {
+            statusEl.innerHTML = '<span style="color:#f59e0b;">⚠️ OCR 识别失败（可能是首次加载模型），请手动输入描述</span>';
+        }
+        console.error('OCR error:', e);
+    }
+}
+
+async function searchSolution() {
+    const desc = document.getElementById('solve-desc').value.trim() || ocrText;
+    const subject = document.getElementById('solve-subject').value;
+    if (!desc && !subject) { alert('请上传题目图片或输入描述'); return; }
+
+    document.getElementById('solve-empty').style.display = 'none';
+    document.getElementById('solve-results').style.display = 'block';
+    document.getElementById('solve-stats').innerHTML = '🔍 正在搜索题库和知识库...';
+    document.getElementById('solve-cards').innerHTML = '';
+
+    const res = await fetch('/api/solve/search', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({description: desc, subject: subject})
+    });
+    const data = await res.json();
+    renderResults(data, desc, subject);
+}
+
+function renderResults(data, desc, subject) {
+    document.getElementById('solve-stats').innerHTML = data.message;
+
+    let html = '';
+
+    if (data.results.length > 0) {
+        data.results.forEach((p, i) => {
+            const relatedKw = data.knowledge.filter(k => k.subject === p.subject || !subject);
+            const kwHtml = relatedKw.slice(0, 5).map(k =>
+                `<a href="/subject/${k.key}" class="solve-tag">
+                    ${k.icon} ${k.heading}
+                </a>`
+            ).join('');
+
+            html += `<div class="solve-result-card" id="solve-card-${i}">
+                <div class="solve-result-header" onclick="this.parentElement.classList.toggle('expanded')">
+                    <div style="flex:1;">
+                        <span class="solve-badge">${p.subject || '综合'}</span>
+                        <strong style="display:block;font-size:15px;margin-top:4px;">${p.title}</strong>
+                        <div style="font-size:13px;color:var(--text-secondary);margin-top:6px;line-height:1.6;">${p.body || ''}</div>
+                    </div>
+                    <span class="solve-expand-arrow">▼</span>
+                </div>
+                <div class="solve-result-body">
+                    <div class="solve-solution-box">
+                        <div class="solve-solution-label">📖 详细解答</div>
+                        <div class="solve-solution-content">${p.full_solution || '查看原题库获取完整解答'}</div>
+                    </div>
+                    ${kwHtml ? `<div style="margin-top:16px;">
+                        <div style="font-size:13px;font-weight:600;margin-bottom:8px;">📚 关联知识点</div>
+                        <div style="display:flex;flex-wrap:wrap;gap:6px;">${kwHtml}</div>
+                    </div>` : ''}
+                    <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;">
+                        <a href="/quiz?subject=${encodeURIComponent(p.subject||'')}" class="quick-link secondary" style="font-size:12px;">🎯 去测验</a>
+                        <a href="/practice" class="quick-link secondary" style="font-size:12px;">✏️ 题库练习</a>
+                        <a href="/flashcards" class="quick-link secondary" style="font-size:12px;">🃏 闪卡复习</a>
+                    </div>
+                </div>
+            </div>`;
+        });
+    } else {
+        html += `<div class="empty-state">
+            <div class="icon">🔍</div>
+            <p>未找到匹配结果</p>
+            <p style="font-size:13px;color:var(--text-secondary);">试试换关键词、选科目、或简化描述</p>
+        </div>`;
+    }
+
+    if (data.knowledge.length > 0) {
+        html += `<div style="margin-top:24px;">
+            <h4 style="margin-bottom:10px;">📖 所有相关知识点（${data.knowledge.length}处）</h4>
+            <div style="display:flex;flex-direction:column;gap:6px;">`;
+        data.knowledge.forEach(k => {
+            html += `<a href="/subject/${k.key}" class="solve-kw-card" style="display:block;padding:10px 14px;border:1px solid var(--border);border-radius:8px;text-decoration:none;color:var(--text);font-size:13px;transition:.15s;">
+                <span>${k.icon} <strong>${k.subject}</strong> · ${k.heading}</span>
+                ${k.snippet ? `<small style="display:block;color:var(--text-secondary);margin-top:2px;">${k.snippet}</small>` : ''}
+            </a>`;
+        });
+        html += `</div></div>`;
+    }
+
+    if (data.flashcards.length > 0) {
+        html += `<div style="margin-top:24px;">
+            <h4 style="margin-bottom:10px;">🃏 相关闪卡（${data.flashcards.length}张）</h4>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:8px;">`;
+        data.flashcards.forEach(f => {
+            html += `<div style="padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:8px;font-size:13px;">
+                <div style="font-weight:600;margin-bottom:4px;">📝 ${f.front}</div>
+                <div style="color:var(--text-secondary);font-size:12px;">💡 ${f.back.substring(0, 150)}</div>
+            </div>`;
+        });
+        html += `</div></div>`;
+    }
+
+    document.getElementById('solve-cards').innerHTML = html;
+    if (window.renderMathInElement) {
+        renderMathInElement(document.getElementById('solve-cards'), {
+            delimiters: [{left:"$$",right:"$$",display:true},{left:"$",right:"$",display:false}]
+        });
+    }
+    document.getElementById('solve-results').scrollIntoView({behavior:'smooth'});
+}
+</script>
+{% endblock %}

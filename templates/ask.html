@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}AI 问答 — 期末复习{% endblock %}
+{% block content %}
+<div class="container">
+    <h2 style="margin-bottom:16px;">🤖 AI 学习助手</h2>
+    <p style="color:var(--gray-600);margin-bottom:20px;">提出你的问题，助手会从知识库中搜索并整合答案。</p>
+
+    <!-- 快捷问题 -->
+    <div style="margin-bottom:16px;display:flex;flex-wrap:wrap;gap:8px;" id="quick-questions">
+        <button class="filter-btn" onclick="quickAsk('什么是解析函数？')">什么是解析函数？</button>
+        <button class="filter-btn" onclick="quickAsk('Sylow 定理怎么用？')">Sylow 定理怎么用？</button>
+        <button class="filter-btn" onclick="quickAsk('单纯形法的步骤是什么？')">单纯形法的步骤？</button>
+        <button class="filter-btn" onclick="quickAsk('AVL 树四种旋转分别是什么？')">AVL 树旋转？</button>
+        <button class="filter-btn" onclick="quickAsk('Cauchy 积分公式怎么用？')">Cauchy 积分公式？</button>
+        <button class="filter-btn" onclick="quickAsk('KMP 算法 next 数组怎么求？')">KMP next 数组？</button>
+    </div>
+
+    <!-- 聊天区 -->
+    <div class="chat-container" id="chat-container">
+        <div class="chat-welcome">
+            <div style="font-size:40px;margin-bottom:8px;">🤖</div>
+            <p>你好！我是你的数学复习助手。</p>
+            <p style="font-size:13px;color:var(--gray-600);">覆盖复变函数、抽象代数、运筹学、数据结构四门课</p>
+        </div>
+    </div>
+
+    <!-- 输入区 -->
+    <div class="chat-input-wrap">
+        <input type="text" id="chat-input" class="chat-input" placeholder="输入你的问题，例如：如何判断一个级数是否收敛？" onkeydown="if(event.key==='Enter')askQuestion()">
+        <button class="quiz-btn primary" onclick="askQuestion()">发送</button>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+const chat = document.getElementById('chat-container');
+
+function quickAsk(q) {
+    document.getElementById('chat-input').value = q;
+    askQuestion();
+}
+
+async function askQuestion() {
+    const input = document.getElementById('chat-input');
+    const q = input.value.trim();
+    if (!q) return;
+    input.value = '';
+
+    // 显示用户消息
+    chat.innerHTML += `<div class="chat-msg user-msg"><div class="chat-bubble">${q}</div></div>`;
+    chat.innerHTML += `<div class="chat-msg bot-msg"><div class="chat-bubble typing">思考中…</div></div>`;
+    chat.scrollTop = chat.scrollHeight;
+    document.querySelector('.chat-welcome')?.remove();
+
+    try {
+        const res = await fetch('/api/ask', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({question: q})
+        });
+        const data = await res.json();
+
+        // 移除 typing
+        chat.querySelector('.typing')?.parentElement?.remove();
+
+        let html = `<div class="chat-msg bot-msg"><div class="chat-bubble">`;
+        html += data.answer.replace(/\n\n/g, '<br><br>').replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+        if (data.links && data.links.length) {
+            html += '<div style="margin-top:8px;font-size:12px;">📖 相关页面：';
+            data.links.forEach(l => {
+                html += ` <a href="${l.url}" style="color:var(--blue);">${l.text}</a>`;
+            });
+            html += '</div>';
+        }
+        html += `</div></div>`;
+        chat.innerHTML += html;
+    } catch (e) {
+        chat.querySelector('.typing')?.parentElement?.remove();
+        chat.innerHTML += `<div class="chat-msg bot-msg"><div class="chat-bubble">抱歉，出了点问题。请重试。</div></div>`;
+    }
+
+    chat.scrollTop = chat.scrollHeight;
+    // Re-render KaTeX
+    if (window.renderMathInElement) renderMathInElement(chat, {delimiters:[{left:"$$",right:"$$",display:true},{left:"$",right:"$",display:false}]});
+}
+</script>
+{% endblock %}

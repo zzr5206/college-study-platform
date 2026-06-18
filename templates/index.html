@@ -1,0 +1,326 @@
+{% extends "base.html" %}
+{% block title %}数学专业期末复习{% endblock %}
+{% block content %}
+<div class="container">
+    <div class="hero">
+        <h1>📐 大学生智能学习平台</h1>
+        <p>数学专业课 + 英语四六级 · 一站式期末复习</p>
+        <!-- 考试倒计时 -->
+        <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:16px;" id="countdown-bar"></div>
+    </div>
+
+    <!-- 每日目标 -->
+    <div class="today-card" id="daily-goal-card" style="max-width:600px;margin:0 auto 24px;">
+        <h4>🎯 每日目标</h4>
+        <div id="daily-goal-content">加载中...</div>
+    </div>
+
+    <!-- 仪表盘 -->
+    <div class="dashboard" id="dashboard">
+        <!-- 智能学习评分 -->
+        <div style="text-align:center;margin-bottom:20px;" id="smart-score-area">
+            <div style="display:inline-block;position:relative;">
+                <svg width="100" height="100" viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="42" fill="none" stroke="var(--border)" stroke-width="8"/>
+                    <circle id="score-ring" cx="50" cy="50" r="42" fill="none" stroke="var(--blue)" stroke-width="8" stroke-dasharray="264" stroke-dashoffset="264" stroke-linecap="round" transform="rotate(-90 50 50)" style="transition: stroke-dashoffset 1s ease;"/>
+                </svg>
+                <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+                    <span id="smart-score-num" style="font-size:28px;font-weight:700;color:var(--blue);">--</span>
+                    <span style="font-size:10px;color:var(--text-secondary);">学习指数</span>
+                </div>
+            </div>
+            <div style="margin-top:4px;font-size:12px;color:var(--text-secondary);" id="smart-score-label"></div>
+        </div>
+
+        <!-- 学习概览卡片 -->
+        <div class="dash-row">
+            <div class="dash-card" id="dc-wrong">
+                <div class="dash-num" id="dash-wrong-total">--</div>
+                <div class="dash-label">错题收集</div>
+            </div>
+            <div class="dash-card" id="dc-flashcard">
+                <div class="dash-num" id="dash-flash-mastered">--</div>
+                <div class="dash-label">闪卡已掌握</div>
+            </div>
+            <div class="dash-card" id="dc-path">
+                <div class="dash-num" id="dash-path-done">--</div>
+                <div class="dash-label">学习路径完成</div>
+            </div>
+            <div class="dash-card" id="dc-quiz">
+                <div class="dash-num" id="dash-quiz-total">--</div>
+                <div class="dash-label">可用练习题</div>
+            </div>
+        </div>
+
+        <!-- 四科进度 -->
+        <h4 style="margin:20px 0 12px;">📊 各科学习进度</h4>
+        <div id="subject-bars"></div>
+
+        <!-- 成就展示 -->
+        <div class="today-card" id="achievement-showcase" style="display:none;">
+            <h4>🏆 最新成就 <span style="font-weight:400;font-size:12px;color:var(--text-secondary);">（<a href="/progress" style="color:var(--blue);">查看全部</a>）</span></h4>
+            <div id="achievement-badges" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;"></div>
+        </div>
+
+        <!-- 今日推荐 -->
+        <div class="today-card" id="today-card">
+            <h4>📌 今日推荐任务</h4>
+            <div id="today-tasks">加载中...</div>
+        </div>
+    </div>
+
+    <!-- 数据管理 -->
+    <div style="display:flex;gap:12px;justify-content:center;margin-bottom:24px;flex-wrap:wrap;">
+        <button onclick="exportData()" class="quick-link secondary" style="cursor:pointer;font-size:13px;">💾 导出数据备份</button>
+        <button onclick="document.getElementById('import-file').click()" class="quick-link secondary" style="cursor:pointer;font-size:13px;">📥 导入数据恢复</button>
+        <input type="file" id="import-file" accept=".json" style="display:none;" onchange="importData(this)">
+    </div>
+
+    <!-- 快速入口 -->
+    <div class="card-grid">
+        {% for key, info in subjects.items() %}
+        <a href="/subject/{{ key }}" class="card">
+            <div class="icon">{{ info.icon }}</div>
+            <h3>{{ info.name }}</h3>
+            <p>知识点 · 例题 · 速记</p>
+        </a>
+        {% endfor %}
+    </div>
+
+    <div class="quick-links">
+        <a href="/practice" class="quick-link">✏️ 题库</a>
+        <a href="/quiz" class="quick-link">🎯 测验</a>
+        <a href="/flashcards" class="quick-link">🃏 闪卡</a>
+        <a href="/videos" class="quick-link secondary">🎬 视频</a>
+        <a href="/wrong" class="quick-link secondary">🔴 错题本</a>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(async function() {
+    // 仪表盘数据 + 洞察
+    const res = await fetch('/api/dashboard');
+    const d = await res.json();
+    const insightsRes = await fetch('/api/insights');
+    const insights = await insightsRes.json();
+    document.getElementById('dash-wrong-total').textContent = d.wrong_total;
+    document.getElementById('dash-quiz-total').textContent = d.quiz_total;
+
+    // 闪卡掌握度
+    let flashMastered = 0, flashTotal = 0;
+    const fm = JSON.parse(localStorage.getItem('flashcard_mastery') || '{}');
+    for (const key of Object.keys(fm)) {
+        const vals = Object.values(fm[key]);
+        flashTotal += vals.length;
+        flashMastered += vals.filter(v => v >= 2).length;
+    }
+    document.getElementById('dash-flash-mastered').textContent = flashTotal ? Math.round(flashMastered/flashTotal*100) + '%' : '0%';
+
+    // 学习路径
+    let pathDone = 0, pathTotal = 0;
+    const subjects = ['complex-analysis','abstract-algebra','operations-research','data-structures-c'];
+    subjects.forEach(k => {
+        const saved = JSON.parse(localStorage.getItem('learning_path_' + k) || '{}');
+        pathTotal += Object.keys(saved).length;
+        pathDone += Object.values(saved).filter(v => v).length;
+    });
+    document.getElementById('dash-path-done').textContent = pathTotal ? Math.round(pathDone/pathTotal*100) + '%' : '0%';
+
+    // 四科进度条
+    const names = {'complex-analysis':'复变函数','abstract-algebra':'抽象代数','operations-research':'运筹学','data-structures-c':'数据结构 C'};
+    const colors = {'complex-analysis':'#3b82f6','abstract-algebra':'#10b981','operations-research':'#f59e0b','data-structures-c':'#ef4444'};
+    let bars = '';
+    subjects.forEach(k => {
+        const saved = JSON.parse(localStorage.getItem('learning_path_' + k) || '{}');
+        const done = Object.values(saved).filter(v => v).length;
+        const total = Object.keys(saved).length || 7;
+        const pct = Math.round(done/Math.max(total,1)*100);
+        bars += `<div style="display:flex;align-items:center;gap:10px;margin:8px 0;">
+            <span style="width:90px;font-size:13px;">${names[k]}</span>
+            <div style="flex:1;height:16px;background:#e5e7eb;border-radius:8px;overflow:hidden;">
+                <div style="width:${pct}%;height:100%;background:${colors[k]};border-radius:8px;transition:width .6s;"></div>
+            </div>
+            <span style="width:36px;font-size:12px;text-align:right;">${pct}%</span>
+        </div>`;
+    });
+    document.getElementById('subject-bars').innerHTML = bars;
+
+    // 考试倒计时（可自定义日期）
+    const examDates = JSON.parse(localStorage.getItem('exam_dates') || '{"复变函数":"2025-07-01","抽象代数":"2025-07-03","运筹学":"2025-07-05","数据结构 C":"2025-07-08","英语四级":"2025-06-14"}');
+    const subjIcons = {'复变函数':'🔵','抽象代数':'🟢','运筹学':'🟠','数据结构 C':'🔴','英语四级':'🔤'};
+    let cdHtml = '';
+    const today = new Date();
+    for (const [name, dateStr] of Object.entries(examDates)) {
+        const examDate = new Date(dateStr);
+        const diff = Math.ceil((examDate - today) / (1000*60*60*24));
+        if (diff < 0) continue;
+        const urgency = diff <= 3 ? 'background:#fef2f2;border-color:#ef4444;' : diff <= 7 ? 'background:#fffbeb;border-color:#f59e0b;' : '';
+        cdHtml += `<div style="padding:6px 14px;border-radius:20px;border:1px solid var(--gray-200);background:#fff;font-size:13px;${urgency}">
+            ${subjIcons[name]||''} ${name}：<strong>${diff <= 0 ? '今天！' : diff + '天'}</strong>
+        </div>`;
+    }
+    document.getElementById('countdown-bar').innerHTML = cdHtml || '<span style="font-size:13px;color:var(--gray-600);">点击设置考试日期 →</span>';
+    // 点击倒计时可以修改日期
+    document.getElementById('countdown-bar').style.cursor = 'pointer';
+    document.getElementById('countdown-bar').title = '点击修改考试日期';
+    document.getElementById('countdown-bar').onclick = function() {
+        const subj = prompt('设置哪科的考试日期？\n（复变函数 / 抽象代数 / 运筹学 / 数据结构 C / 英语四级）');
+        if (!subj || !examDates.hasOwnProperty(subj)) return;
+        const date = prompt(`${subj} 考试日期（YYYY-MM-DD）：`, examDates[subj]);
+        if (!date) return;
+        examDates[subj] = date;
+        localStorage.setItem('exam_dates', JSON.stringify(examDates));
+        location.reload();
+    };
+
+    // 每日目标
+    const todayKey = new Date().toISOString().split('T')[0];
+    const goalData = JSON.parse(localStorage.getItem('daily_goals') || `{"date":"${todayKey}","quizGoal":10,"flashcardGoal":20,"quizDone":0,"flashcardDone":0}`);
+    if (goalData.date !== todayKey) {
+        goalData.date = todayKey;
+        goalData.quizDone = 0;
+        goalData.flashcardDone = 0;
+    }
+    const quizPct = Math.min(100, Math.round(goalData.quizDone / Math.max(1, goalData.quizGoal) * 100));
+    const flashPct = Math.min(100, Math.round(goalData.flashcardDone / Math.max(1, goalData.flashcardGoal) * 100));
+    document.getElementById('daily-goal-content').innerHTML = `
+        <div style="margin:6px 0;display:flex;align-items:center;gap:10px;">
+            <span style="font-size:13px;width:80px;">📝 做题</span>
+            <div style="flex:1;height:16px;background:#e5e7eb;border-radius:8px;overflow:hidden;">
+                <div style="width:${quizPct}%;height:100%;background:${quizPct>=100?'#22c55e':'var(--blue)'};border-radius:8px;transition:.3s;"></div>
+            </div>
+            <span style="font-size:12px;width:60px;">${goalData.quizDone}/${goalData.quizGoal}</span>
+        </div>
+        <div style="margin:6px 0;display:flex;align-items:center;gap:10px;">
+            <span style="font-size:13px;width:80px;">🃏 闪卡</span>
+            <div style="flex:1;height:16px;background:#e5e7eb;border-radius:8px;overflow:hidden;">
+                <div style="width:${flashPct}%;height:100%;background:${flashPct>=100?'#22c55e':'#8b5cf6'};border-radius:8px;transition:.3s;"></div>
+            </div>
+            <span style="font-size:12px;width:60px;">${goalData.flashcardDone}/${goalData.flashcardGoal}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
+            <span id="streak-msg" style="font-size:12px;color:var(--gray-600);"></span>
+            <button onclick="adjustGoal()" style="font-size:11px;padding:4px 10px;border:1px solid var(--gray-200);border-radius:12px;background:#fff;cursor:pointer;">⚙ 调整目标</button>
+        </div>
+    `;
+    // 连续天数
+    const activity = JSON.parse(localStorage.getItem('daily_activity') || '{}');
+    let s = 0;
+    for (let d = new Date(); ; d.setDate(d.getDate()-1)) {
+        if (activity[d.toISOString().split('T')[0]]) s++; else break;
+    }
+    document.getElementById('streak-msg').textContent = s > 0 ? `🔥 连续 ${s} 天` : '今天开始学习吧！';
+    localStorage.setItem('daily_goals', JSON.stringify(goalData));
+
+    // ── 智能评分环 ──
+    if (insights.overall_score) {
+        const score = insights.overall_score;
+        document.getElementById('smart-score-num').textContent = score;
+        const ring = document.getElementById('score-ring');
+        const circumference = 2 * Math.PI * 42; // ~264
+        const offset = circumference - (score / 100) * circumference;
+        ring.setAttribute('stroke-dashoffset', offset);
+        if (score >= 70) ring.setAttribute('stroke', '#22c55e');
+        else if (score >= 45) ring.setAttribute('stroke', '#f59e0b');
+        else ring.setAttribute('stroke', '#ef4444');
+        document.getElementById('smart-score-label').textContent =
+            score >= 80 ? '学习状态优秀！' : score >= 60 ? '继续努力，稳步提升' : score >= 40 ? '需要加强复习' : '建议系统规划复习';
+    }
+
+    // ── 智能推荐（使用洞察数据）──
+    let tasks = [];
+    if (insights.adaptive_plan) {
+        // 显示高优先级推荐
+        const highPriority = insights.adaptive_plan.filter(p => p.priority === 'high');
+        highPriority.forEach(p => {
+            tasks.push(`${p.icon} <strong>${p.subject}</strong>：${p.action}`);
+            if (p.tasks) p.tasks.slice(0, 2).forEach(t => tasks.push(`   ↳ ${t}`));
+        });
+        const mediumPriority = insights.adaptive_plan.filter(p => p.priority === 'medium').slice(0, 1);
+        mediumPriority.forEach(p => {
+            tasks.push(`${p.icon} <strong>${p.subject}</strong>：${p.action}`);
+        });
+    }
+    tasks.push('🎯 做一套<strong>自适应测验</strong>（智能选题，精准补弱）');
+    if (tasks.length === 0) tasks.push('📖 从四科中选一门开始学习吧！');
+    document.getElementById('today-tasks').innerHTML = tasks.map((t,i) => `<div style="margin:6px 0;font-size:14px;">${i+1}. ${t}</div>`).join('');
+// ── 数据导出/导入 ──
+function exportData() {
+    const keys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k.startsWith('learning_path_') || k.startsWith('flashcard_mastery') ||
+            k === 'quiz_history' || k === 'daily_activity' || k === 'daily_goals' ||
+            k === 'exam_dates' || k === 'reading_pos_' || k === 'theme' ||
+            k === 'study_notes' || k === 'achievements' || k === 'pomodoro_sessions' ||
+            k === 'study_reminders' || k === 'flashcard_sm2' || k === 'flashcard_sm2_migrated' ||
+            k.startsWith('reading_pos_')) {
+            keys.push(k);
+        }
+    }
+    const data = {};
+    keys.forEach(function(k) { data[k] = localStorage.getItem(k); });
+    const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'math-review-backup-' + new Date().toISOString().split('T')[0] + '.json';
+    a.click();
+    URL.revokeObjectURL(url);
+    alert('✅ 数据已导出！文件保存在下载目录。');
+}
+
+function importData(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const data = JSON.parse(e.target.result);
+            const keys = Object.keys(data);
+            if (!keys.length) { alert('文件格式无效'); return; }
+            if (!confirm('即将导入 ' + keys.length + ' 项数据。\n\n选择"确定"合并导入（不会删除现有数据）\n选择"取消"放弃导入')) return;
+            keys.forEach(function(k) {
+                // 合并策略：仅当目标不存在或导入数据更新时才覆盖
+                localStorage.setItem(k, data[k]);
+            });
+            alert('✅ 数据已导入！页面将刷新。');
+            location.reload();
+        } catch (err) {
+            alert('❌ 文件解析失败，请检查是否为有效的备份文件。');
+        }
+    };
+    reader.readAsText(file);
+}
+
+    // 成就展示
+    setTimeout(function() {
+        var unlocked = JSON.parse(localStorage.getItem('achievements') || '[]');
+        if (unlocked.length > 0) {
+            var box = document.getElementById('achievement-showcase');
+            box.style.display = 'block';
+            var badges = document.getElementById('achievement-badges');
+            var allAch = window._achievements ? window._achievements.getAll() : [];
+            var latest = unlocked.slice(-4).reverse();
+            latest.forEach(function(u) {
+                var ach = allAch.find(function(a) { return a.id === u.id; }) || {name:u.id, icon:'🏆', desc:''};
+                badges.innerHTML += '<span class="achievement-badge unlocked">' + ach.icon + ' ' + ach.name + '</span>';
+            });
+            if (unlocked.length > 4) {
+                badges.innerHTML += '<span class="achievement-badge unlocked">+' + (unlocked.length - 4) + ' 更多</span>';
+            }
+        }
+    }, 2000);
+
+function adjustGoal() {
+    const q = prompt('每日做题目标（几道题）：', goalData.quizGoal);
+    const f = prompt('每日闪卡目标（几张卡）：', goalData.flashcardGoal);
+    if (q) goalData.quizGoal = parseInt(q) || 10;
+    if (f) goalData.flashcardGoal = parseInt(f) || 20;
+    localStorage.setItem('daily_goals', JSON.stringify(goalData));
+    location.reload();
+}
+})();
+</script>
+{% endblock %}

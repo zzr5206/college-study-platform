@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+{% block title %}错题本 — 期末复习{% endblock %}
+{% block content %}
+<div class="container">
+    <h2 style="margin-bottom:16px;">🔴 错题本</h2>
+
+    <!-- 统计 -->
+    {% set stats_data = stats %}
+    <div class="stats-bar">
+        <div class="stat-card">
+            <div class="num">{{ stats_data.total }}</div>
+            <div class="label">错题总数</div>
+        </div>
+        {% for subj, count in stats_data.counts.items() %}
+        <div class="stat-card">
+            <div class="num">{{ count }}</div>
+            <div class="label">{{ subj }}</div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- 提交表单 -->
+    <div class="wrong-form">
+        <h3 style="margin-bottom:12px;">📝 提交错题</h3>
+        <form method="POST" enctype="multipart/form-data" id="wrong-form">
+
+            <!-- 上传区 -->
+            <label>📷 拍照上传错题 <span style="color:var(--gray-600);font-weight:400;">（拖拽或点击上传，支持多张）</span></label>
+            <div class="upload-zone" id="upload-zone">
+                <div class="upload-icon">📸</div>
+                <p style="font-size:15px;margin:4px 0;">点击选择图片 或 拖拽到此处</p>
+                <p style="font-size:12px;color:var(--gray-600);">支持 JPG / PNG / GIF / WebP，可一次选多张</p>
+                <input type="file" name="images" id="file-input" accept="image/*" multiple style="display:none;">
+            </div>
+
+            <!-- 图片预览 -->
+            <div class="preview-grid" id="preview-grid"></div>
+
+            <label>科目</label>
+            <select name="subject" required>
+                <option value="">请选择科目</option>
+                <option value="复变函数">🔵 复变函数</option>
+                <option value="抽象代数">🟢 抽象代数</option>
+                <option value="运筹学">🟠 运筹学</option>
+                <option value="数据结构 C">🔴 数据结构 C</option>
+            </select>
+
+            <label>题目简述</label>
+            <input type="text" name="title" placeholder="例如：求留数 ∮ (z+1)/(z(z-1)) dz">
+
+            <label>我的错误做法 / 疑问（可选）</label>
+            <textarea name="wrong_work" placeholder="把你的解题过程或疑问写在这里…&#10;已上传照片的话可以简写或不写。"></textarea>
+
+            <label>正确答案（可选）</label>
+            <textarea name="solution" placeholder="如果你已知正确答案或老师讲评过，可以贴在这里。"></textarea>
+
+            <button type="submit">💾 保存到错题本</button>
+        </form>
+    </div>
+
+    <!-- 薄弱环节诊断 -->
+    <div id="diagnosis-box" style="display:none;">
+        <h3 style="margin-bottom:12px;">📊 薄弱环节分析</h3>
+        <div class="diagnosis-content" id="diagnosis-content"></div>
+    </div>
+
+    <!-- 错题列表 -->
+    <h3 style="margin-bottom:12px;">📋 已收集的错题</h3>
+
+    {% if stats_data.problems %}
+        <div class="wrong-list">
+        {% for p in stats_data.problems %}
+            <div class="wrong-entry">
+                <div class="meta">{{ p.date }} · {{ p.subject }}</div>
+                <h3>{{ p.title }}</h3>
+                <div class="body">{{ p.body_html | safe }}</div>
+            </div>
+        {% endfor %}
+        </div>
+    {% else %}
+        <div class="empty-state">
+            <div class="icon">📭</div>
+            <p>还没有收集错题</p>
+            <p style="font-size:13px;">拍照上传你的第一道错题吧！</p>
+        </div>
+    {% endif %}
+
+    <!-- 随机复习 -->
+    {% if stats_data.total >= 3 %}
+    <div style="text-align:center;margin-top:24px;">
+        <button class="quick-link secondary" onclick="randomReview()" style="cursor:pointer;font-size:15px;">
+            🎲 随机抽 3 题复习
+        </button>
+    </div>
+    <div id="random-result" style="margin-top:16px;"></div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ── 薄弱环节诊断 ──
+(async function loadDiagnosis() {
+    const res = await fetch('/api/diagnosis');
+    const d = await res.json();
+    if (!d.has_data) return;
+    const box = document.getElementById('diagnosis-box');
+    box.style.display = 'block';
+    const content = document.getElementById('diagnosis-content');
+
+    // 饼图条
+    const colors = {'复变函数':'#3b82f6','抽象代数':'#10b981','运筹学':'#f59e0b','数据结构 C':'#ef4444'};
+    let bars = '';
+    for (const [subj, count] of Object.entries(d.counts)) {
+        const pct = d.total > 0 ? Math.round(count/d.total*100) : 0;
+        bars += `<div style="display:flex;align-items:center;gap:8px;margin:4px 0;">
+            <span style="width:60px;font-size:13px;">${subj}</span>
+            <div style="flex:1;height:20px;background:#e5e7eb;border-radius:10px;overflow:hidden;">
+                <div style="width:${pct}%;height:100%;background:${colors[subj]};border-radius:10px;transition:width .5s;"></div>
+            </div>
+            <span style="width:40px;font-size:13px;text-align:right;">${count}</span>
+        </div>`;
+    }
+
+    content.innerHTML = `
+        <p style="margin-bottom:12px;">🔴 <strong>${d.max_subject}</strong> 错题最多，建议优先复习。</p>
+        ${bars}
+        <div style="margin-top:12px;padding:12px;background:#fef3c7;border-radius:8px;font-size:14px;">
+            <strong>📌 建议复习方向：</strong>
+            <ul style="margin:4px 0 0 20px;">${d.suggestions.map(s => `<li>${s}</li>`).join('')}</ul>
+        </div>
+        <a href="${d.quick_links[d.max_subject] || '#'}" style="display:inline-block;margin-top:8px;padding:8px 16px;background:var(--blue);color:#fff;border-radius:8px;text-decoration:none;font-size:14px;">
+            去复习 ${d.max_subject} →
+        </a>
+    `;
+})();
+
+// ── 拖拽上传 + 预览 ──
+const zone = document.getElementById('upload-zone');
+const input = document.getElementById('file-input');
+const previewGrid = document.getElementById('preview-grid');
+const fileList = new DataTransfer();
+
+zone.addEventListener('click', () => input.click());
+
+zone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    zone.classList.add('drag-over');
+});
+zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+zone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    zone.classList.remove('drag-over');
+    addFiles(e.dataTransfer.files);
+});
+
+input.addEventListener('change', () => addFiles(input.files));
+
+function addFiles(files) {
+    for (let f of files) {
+        if (!f.type.startsWith('image/')) continue;
+        fileList.items.add(f);
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            const card = document.createElement('div');
+            card.className = 'preview-card';
+            card.innerHTML = `<img src="${ev.target.result}"><button class="remove-btn" type="button">×</button>`;
+            card.querySelector('.remove-btn').onclick = () => {
+                card.remove();
+                // rebuild fileList without this file
+                const idx = [...fileList.files].findIndex(x => x.name === f.name && x.size === f.size);
+                if (idx >= 0) {
+                    const dt = new DataTransfer();
+                    [...fileList.files].forEach((ff, i) => { if (i !== idx) dt.items.add(ff); });
+                    fileList.items.clear();
+                    [...dt.files].forEach(ff => fileList.items.add(ff));
+                }
+                input.files = fileList.files;
+            };
+            previewGrid.appendChild(card);
+        };
+        reader.readAsDataURL(f);
+    }
+    input.files = fileList.files;
+}
+</script>
+
+{% if stats.total >= 3 %}
+<script>
+async function randomReview() {
+    const res = await fetch('/api/wrong-random');
+    const data = await res.json();
+    const div = document.getElementById('random-result');
+    div.innerHTML = '<h3 style="margin-bottom:12px;">🎯 抽中以下 3 题，试试重做：</h3>';
+    data.problems.forEach((p, i) => {
+        div.innerHTML += `<div class="wrong-entry">
+            <div class="meta">${p.date} · ${p.subject}</div>
+            <h3>${i+1}. ${p.title}</h3>
+            <div class="body">${p.body_html.replace(/<img[^>]+>/g, '[图片]').replace(/### 解答[\s\S]*?(?=<br>###|\Z)/, '<em>（解答已隐藏，先自己试试）</em>')}</div>
+        </div>`;
+    });
+}
+</script>
+{% endif %}
+{% endblock %}
