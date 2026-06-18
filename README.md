@@ -46,6 +46,24 @@ http://127.0.0.1:5000
 python desktop_app.py
 ```
 
+## 部署到 Render
+
+仓库已经包含 `render.yaml`，可以在 Render 上作为 Python Web Service 部署。
+
+1. 打开 [Render Dashboard](https://dashboard.render.com/)。
+2. 选择 `New` -> `Blueprint` 或 `Web Service`。
+3. 连接 GitHub 仓库 `zzr5206/college-study-platform`。
+4. 如果手动填写配置，使用：
+
+```text
+Build Command: pip install -r requirements.txt
+Start Command: gunicorn app:app --bind 0.0.0.0:$PORT
+```
+
+部署成功后，Render 会生成一个 `onrender.com` 网址。以后推送到 GitHub 的 `main` 分支，Render 会自动重新部署。
+
+注意：免费 Web Service 的本地文件系统不适合作为长期存储，`static/uploads/` 中用户上传的图片可能在重启或重新部署后丢失。正式多人使用时，建议后续接入对象存储或数据库。
+
 ## 数据说明
 
 - `references/` 中的 Markdown 文件是应用读取的知识库和题库。
