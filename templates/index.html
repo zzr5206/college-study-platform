@@ -147,17 +147,32 @@
     document.getElementById('subject-bars').innerHTML = bars;
 
     // 考试倒计时（可自定义日期）
-    const examDates = JSON.parse(localStorage.getItem('exam_dates') || '{"复变函数":"2025-07-01","抽象代数":"2025-07-03","运筹学":"2025-07-05","数据结构 C":"2025-07-08","英语四级":"2025-06-14"}');
+    const DEFAULT_EXAM_DATES = {
+        '复变函数': '2025-07-01',
+        '抽象代数': '2025-07-03',
+        '运筹学': '2026-07-02T10:00:00',
+        '数据结构 C': '2026-06-29T00:00:00',
+        '英语四级': '2025-06-14'
+    };
+    const examDates = Object.assign({}, DEFAULT_EXAM_DATES, JSON.parse(localStorage.getItem('exam_dates') || '{}'));
+    examDates['运筹学'] = DEFAULT_EXAM_DATES['运筹学'];
+    examDates['数据结构 C'] = DEFAULT_EXAM_DATES['数据结构 C'];
+    localStorage.setItem('exam_dates', JSON.stringify(examDates));
     const subjIcons = {'复变函数':'🔵','抽象代数':'🟢','运筹学':'🟠','数据结构 C':'🔴','英语四级':'🔤'};
     let cdHtml = '';
     const today = new Date();
     for (const [name, dateStr] of Object.entries(examDates)) {
         const examDate = new Date(dateStr);
-        const diff = Math.ceil((examDate - today) / (1000*60*60*24));
+        const diffMs = examDate - today;
+        const diff = Math.ceil(diffMs / (1000*60*60*24));
+        const hoursLeft = Math.max(0, Math.ceil(diffMs / (1000*60*60)));
         if (diff < 0) continue;
         const urgency = diff <= 3 ? 'background:#fef2f2;border-color:#ef4444;' : diff <= 7 ? 'background:#fffbeb;border-color:#f59e0b;' : '';
+        const daysPart = Math.floor(hoursLeft / 24);
+        const hourPart = hoursLeft % 24;
+        const countdownText = diff <= 0 ? '今天！' : (daysPart > 0 ? `${daysPart}天${hourPart}小时` : `${hoursLeft}小时`);
         cdHtml += `<div style="padding:6px 14px;border-radius:20px;border:1px solid var(--gray-200);background:#fff;font-size:13px;${urgency}">
-            ${subjIcons[name]||''} ${name}：<strong>${diff <= 0 ? '今天！' : diff + '天'}</strong>
+            ${subjIcons[name]||''} ${name}：<strong>${countdownText}</strong>
         </div>`;
     }
     document.getElementById('countdown-bar').innerHTML = cdHtml || '<span style="font-size:13px;color:var(--gray-600);">点击设置考试日期 →</span>';
@@ -167,7 +182,7 @@
     document.getElementById('countdown-bar').onclick = function() {
         const subj = prompt('设置哪科的考试日期？\n（复变函数 / 抽象代数 / 运筹学 / 数据结构 C / 英语四级）');
         if (!subj || !examDates.hasOwnProperty(subj)) return;
-        const date = prompt(`${subj} 考试日期（YYYY-MM-DD）：`, examDates[subj]);
+        const date = prompt(`${subj} 考试日期（YYYY-MM-DD 或 YYYY-MM-DDTHH:mm）：`, examDates[subj]);
         if (!date) return;
         examDates[subj] = date;
         localStorage.setItem('exam_dates', JSON.stringify(examDates));

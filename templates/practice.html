@@ -10,7 +10,7 @@
         <button class="filter-btn" onclick="filterSubject('复变函数')">🔵 复变函数</button>
         <button class="filter-btn" onclick="filterSubject('抽象代数')">🟢 抽象代数</button>
         <button class="filter-btn" onclick="filterSubject('运筹学')">🟠 运筹学</button>
-        <button class="filter-btn" onclick="filterSubject('数据结构')">🔴 数据结构</button>
+        <button class="filter-btn" onclick="filterSubject('数据结构 C')">🔴 数据结构 C</button>
     </div>
 
     <div id="problem-list">
@@ -114,5 +114,11 @@ function filterSubject(subj) {
         if (b.textContent.includes(subj)) b.classList.add('active');
     });
 }
+
+(function applyInitialFilter() {
+    const params = new URLSearchParams(window.location.search);
+    const subj = params.get('subject');
+    if (subj) filterSubject(subj);
+})();
 </script>
 {% endblock %}

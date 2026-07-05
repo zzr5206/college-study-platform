@@ -38,19 +38,24 @@
         <div class="dash-card" data-subj="operations-research" style="text-align:left;font-size:13px;line-height:2;">
             <strong>🟠 运筹学</strong>
             <div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">
-            • 单纯形: 检验数 \(c_j-z_j\)<br>
-            • 对偶: max↔min, 系数转置<br>
-            • M/M/1: \(L_s=\frac{\rho}{1-\rho}\)<br>
-            • EOQ: \(Q^*=\sqrt{2C_3R/C_1}\)
+            • 教材: 《运筹学》第五版 清华大学出版社<br>
+            • 老师核心: 单纯形→对偶→互补松弛→灵敏度→整数建模→分支定界→割平面→最短路→最大流<br>
+            • 单纯形: 标准型、检验数、入基/出基、最小正比值、最终读解<br>
+            • 对偶/互补松弛: max↔min, 系数转置, 松弛约束对应变量为 0<br>
+            • 灵敏度: 目标系数看检验数，右端项看 RHS 非负<br>
+            • 整数规划: 0-1 逻辑约束；分支定界先解 LP 松弛并写剪枝理由<br>
+            • 割平面: 用小数部分构造 Gomory 割，切掉当前非整数解<br>
+            • Dijkstra: 初始化距离→选最小临时标号→更新邻点→记录前驱<br>
+            • 最大流: 增广路→瓶颈容量→更新残量→无增广路→最小割验证
             </div>
         </div>
         <div class="dash-card" data-subj="data-structures-c" style="text-align:left;font-size:13px;line-height:2;">
             <strong>🔴 数据结构</strong>
             <div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">
-            • 二叉树: \(n_0=n_2+1\)<br>
-            • AVL: LL/RR/LR/RL 旋转<br>
-            • KMP: \(O(m+n)\) next数组<br>
-            • 排序: 冒插归稳, 选快堆希不稳
+            • 教材: 严蔚敏《数据结构(C语言版)》第2版<br>
+            • 循环队列: 满 \((rear+1)\%MAX=front\)<br>
+            • KMP: \(next[1]=0\)，看前 \(j-1\) 个字符<br>
+            • 排序: 冒插归基稳, 选快堆希不稳
             </div>
         </div>
     </div>
@@ -79,19 +84,25 @@
         <div class="dash-card" data-subj="operations-research" style="text-align:left;font-size:13px;">
             <strong>🟠 运筹陷阱</strong>
             <ul style="font-size:12px;color:var(--text-secondary);margin:4px 0 0 16px;">
-                <li>入基选最大正检验数</li>
-                <li>出基用最小比值（只看正主元）</li>
-                <li>运输问题基变量=m+n-1</li>
-                <li>DP必须加边界条件</li>
+                <li>单纯形最小比值只看正主元列元素</li>
+                <li>对偶题先数约束/变量，再处理方向和符号</li>
+                <li>互补松弛要先判断约束是否有剩余量</li>
+                <li>灵敏度：目标系数看检验数，右端项看 RHS</li>
+                <li>0-1 建模必须写 \(x_i\in\{0,1\}\) 和变量含义</li>
+                <li>分支定界不写剪枝理由会丢大分</li>
+                <li>割平面负系数的小数部分要按向下取整处理</li>
+                <li>Dijkstra 不能用于含负权边的图</li>
+                <li>最大流最后要用最小割或容量上界验证</li>
             </ul>
         </div>
         <div class="dash-card" data-subj="data-structures-c" style="text-align:left;font-size:13px;">
             <strong>🔴 数据结构陷阱</strong>
             <ul style="font-size:12px;color:var(--text-secondary);margin:4px 0 0 16px;">
                 <li>循环队列判满=(rear+1)%MAX==front</li>
+                <li>KMP next[j] 看前 j-1 个字符</li>
                 <li>BST最坏退化O(n)</li>
-                <li>快排最坏O(n²)已有序时</li>
-                <li>B树关键字数=子树数-1</li>
+                <li>3阶B树每结点最多2个关键字</li>
+                <li>快排最坏O(n²)，归并额外空间O(n)</li>
             </ul>
         </div>
     </div>

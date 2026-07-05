@@ -70,6 +70,16 @@ let problems = [], currentIdx = -1, correctCount = 0, wrongList = [];
 let timerMode = false, timerInterval = null;
 let totalElapsed = 0, questionTimes = [], questionStartTime = 0;
 
+(function applyQuizParams() {
+    const params = new URLSearchParams(window.location.search);
+    const subject = params.get('subject');
+    const count = params.get('count');
+    const timer = params.get('timer');
+    if (subject) document.getElementById('quiz-subject').value = subject;
+    if (count) document.getElementById('quiz-count').value = count;
+    if (timer === '1') document.getElementById('quiz-timer-mode').checked = true;
+})();
+
 async function startQuiz() {
     const subject = document.getElementById('quiz-subject').value;
     const count = document.getElementById('quiz-count').value;

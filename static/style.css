@@ -140,6 +140,90 @@ body {
 .article pre { background: var(--pre-bg); color: var(--pre-text); padding: 16px; border-radius: var(--radius); overflow-x: auto; margin: 12px 0; font-size: 14px; line-height: 1.5; }
 .article pre code { background: none; padding: 0; color: inherit; }
 .article blockquote { border-left: 3px solid var(--blue); padding: 8px 16px; margin: 12px 0; background: var(--blue-light); border-radius: 0 var(--radius) var(--radius) 0; }
+.article .exam-hot-heading {
+    padding-left: 10px;
+    border-left: 4px solid #f59e0b;
+}
+.article .ds-example-heading {
+    margin-top: 28px;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--blue);
+    border-radius: 8px;
+    background: var(--blue-light);
+}
+.article .ds-problem-heading {
+    padding-top: 12px;
+    border-top: 1px dashed var(--border);
+}
+
+.ds-cram-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--blue);
+    border-radius: 12px;
+    padding: 18px;
+    box-shadow: var(--shadow);
+    margin-bottom: 24px;
+}
+.ds-cram-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+.ds-cram-head h2 {
+    font-size: 22px;
+    margin: 2px 0 0;
+}
+.ds-cram-kicker {
+    margin: 0;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+.ds-cram-date {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--blue);
+    background: var(--blue-light);
+    border-radius: 999px;
+    padding: 6px 10px;
+    white-space: nowrap;
+}
+.ds-cram-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 10px;
+}
+.ds-cram-card {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-height: 78px;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text);
+    text-decoration: none;
+    cursor: pointer;
+    font: inherit;
+    text-align: left;
+    transition: .15s;
+}
+.ds-cram-card:hover {
+    border-color: var(--blue);
+    background: var(--blue-light);
+}
+.ds-cram-card strong {
+    font-size: 14px;
+}
+.ds-cram-card span {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.4;
+}
 
 /* KaTeX 暗色适配 */
 [data-theme="dark"] .katex { color: var(--text); }

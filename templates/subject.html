@@ -6,8 +6,8 @@
     {% set paths = {
         'complex-analysis': ['复数与解析函数（C-R 方程）','Cauchy 积分定理与公式','Taylor 与 Laurent 级数','孤立奇点分类','留数定理与实积分','共形映射（Möbius 变换）'],
         'abstract-algebra': ['群的定义、子群、循环群','Lagrange 定理与陪集','正规子群与商群','同态与同构定理','Sylow 定理及其应用','环、理想、商环、域','多项式环与域扩张'],
-        'operations-research': ['线性规划建模与图解法','单纯形法（计算流程）','对偶理论与灵敏度分析','运输与指派问题','动态规划','排队论、博弈论、存储论'],
-        'data-structures-c': ['顺序表与链表（基本操作）','栈与队列','二叉树与 BST','AVL 树与 B 树','哈夫曼树与编码','图的 DFS/BFS 和最短路径','查找（二分/哈希）与排序','KMP 与拓扑排序'],
+        'operations-research': ['单纯形法：标准型、检验数、入基/出基、最优判别','对偶理论：原-对偶转换、弱/强对偶、影子价格','互补松弛：紧约束、松弛量、由一个最优解求另一个','灵敏度分析：目标系数范围、右端项范围、最优基不变','整数规划建模：0-1 变量、互斥、蕴含、至少/至多','分支定界法：LP 松弛、上界/下界、分支、剪枝','割平面法：Gomory 割、切掉非整数解、保留整数解','最短路径：Dijkstra/Floyd、标号表、路径反推','最大流量：增广路、瓶颈容量、残量网络、最小割验证'],
+        'data-structures-c': ['线性表：顺序表与链表','栈和队列：括号匹配与循环队列','串：KMP 与 next 数组','数组/广义表：地址与三元组','树和二叉树：遍历、AVL、B 树、哈夫曼','图：DFS/BFS、最短路、拓扑排序','查找：折半、哈希、ASL','内部排序：复杂度与稳定性'],
         'english-cet': ['核心高频词汇（80词速记）','听力三大题型 + 逻辑词定位法','阅读：选词填空 + 长篇匹配 + 仔细阅读','写作三段式模板 + 词汇升级','翻译拆分法 + 中国文化特色词','真题模拟 + 错题复盘'],
     } %}
     {% set path = paths.get(key, []) %}
@@ -23,6 +23,36 @@
             {% endfor %}
         </div>
     </div>
+    {% endif %}
+
+    {% if key == 'data-structures-c' %}
+    <section class="ds-cram-panel" aria-label="数据结构周一笔试冲刺面板">
+        <div class="ds-cram-head">
+            <div>
+                <p class="ds-cram-kicker">严蔚敏《数据结构（C语言版）》第 2 版 · 周一笔试</p>
+                <h2>十道大题冲刺工作台</h2>
+            </div>
+            <div class="ds-cram-date">2026-06-29</div>
+        </div>
+        <div class="ds-cram-grid">
+            <button type="button" class="ds-cram-card" onclick="jumpToHeadingByText('周一笔试冲刺')">
+                <strong>先看卷面策略</strong>
+                <span>十道大题分布、时间分配、答题模板</span>
+            </button>
+            <button type="button" class="ds-cram-card" onclick="jumpToHeadingByText('树和二叉树大题例题')">
+                <strong>优先刷高频章</strong>
+                <span>树、图、查找、排序先过一遍</span>
+            </button>
+            <a class="ds-cram-card" href="/practice?subject=数据结构%20C">
+                <strong>章节大题题库</strong>
+                <span>30 道章节例题 + 20 道模拟大题</span>
+            </a>
+            <a class="ds-cram-card" href="/quiz?subject=数据结构%20C&count=10&timer=1">
+                <strong>十题模拟测验</strong>
+                <span>按笔试压力计时练一套</span>
+            </a>
+        </div>
+    </section>
     {% endif %}
 
     <!-- 考试信息条 -->
@@ -77,7 +107,7 @@
     <!-- 底部 -->
     <div style="margin-top:24px;display:flex;gap:12px;flex-wrap:wrap;">
         <a href="/flashcards?subject={{ key }}" class="quick-link secondary">🃏 闪卡复习</a>
-        <a href="/quiz?subject={{ key }}" class="quick-link secondary">🎯 测验</a>
+        <a href="/quiz?subject={{ subject.name | urlencode }}" class="quick-link secondary">🎯 测验</a>
         <a href="/reinforce" class="quick-link secondary">💪 加强训练</a>
         <a href="/ask" class="quick-link secondary">🤖 提问</a>
     </div>
@@ -103,8 +133,14 @@ function toggleStep(el) {
 }
 
 // ── 考点导航 + 重要性标注 ──
-const HIGH_FREQ_KEYWORDS = ['Cauchy','C-R','留数','Sylow','Lagrange','正规子群','同构','单纯形','对偶','动态规划','Dijkstra','AVL','KMP','二叉树','C-R 方程','Cauchy 积分','Laurent','奇点','Möbius','群的定义','商群','理想','域','线性规划','指派','排队论','存储论','栈与队列','哈希','排序','共形映射'];
+const HIGH_FREQ_KEYWORDS = ['Cauchy','C-R','留数','Sylow','Lagrange','正规子群','同构','单纯形','对偶','互补松弛','灵敏度','运输问题','位势法','闭回路','匈牙利法','整数规划','分支定界','动态规划','Dijkstra','Floyd','Prim','Kruskal','最大流','最小割','关键路线','PERT','CPM','M/M/1','EOQ','博弈','鞍点','马尔可夫','K-T','AVL','KMP','next','二叉树','C-R 方程','Cauchy 积分','Laurent','奇点','Möbius','群的定义','商群','理想','域','线性规划','指派','排队论','存储论','线性表','栈和队列','循环队列','哈希','ASL','内部排序','稳定性','共形映射','B 树','哈夫曼','DFS','BFS','折半查找','归并'];
 const EXAM_HOT_ICON = ' 🔥';
+
+function jumpToHeadingByText(text) {
+    const headings = Array.from(document.querySelectorAll('#article-content h2, #article-content h3, #article-content h4'));
+    const target = headings.find(h => h.textContent.includes(text));
+    if (target) target.scrollIntoView({behavior:'smooth', block:'start'});
+}
 
 (function() {
     const article = document.getElementById('article-content');
@@ -119,6 +155,11 @@ const EXAM_HOT_ICON = ' 🔥';
         if (h.tagName === 'H2') topicCount++;
         const text = h.textContent.trim().substring(0, 40);
         const isHot = HIGH_FREQ_KEYWORDS.some(kw => text.includes(kw));
+        if (isHot) h.classList.add('exam-hot-heading');
+        if (text.includes('大题例题')) h.classList.add('ds-example-heading');
+        if (text.startsWith('例 ') || text.includes('例 L') || text.includes('例 SQ') || text.includes('例 T') || text.includes('例 G') || text.includes('例 F') || text.includes('例 R')) {
+            h.classList.add('ds-problem-heading');
+        }
         const indent = h.tagName === 'H3' ? 'padding-left:16px;' : '';
         const star = isHot ? ' <span style="color:#f59e0b;font-size:10px;">★★★</span>' : '';
         html += `<a href="#${id}" class="toc-link" style="font-size:${h.tagName==='H3'?'12px':'13px'};${indent}display:block;padding:3px 0;text-decoration:none;border-left:2px solid transparent;padding-left:8px;">${text}${star}</a>`;
@@ -153,17 +194,38 @@ const EXAM_HOT_ICON = ' 🔥';
     });
 
     // 考试倒计时
-    const examDates = JSON.parse(localStorage.getItem('exam_dates') || '{"复变函数":"2025-07-01","抽象代数":"2025-07-03","运筹学":"2025-07-05","数据结构 C":"2025-07-08","英语四级":"2025-06-14"}');
-    const subjNameMap = {'complex-analysis':'复变函数','abstract-algebra':'抽象代数','operations-research':'运筹学','data-structures-c':'数据结构C','english-cet':'英语四级'};
+    const DEFAULT_EXAM_DATES = {
+        '复变函数': '2025-07-01',
+        '抽象代数': '2025-07-03',
+        '运筹学': '2026-07-02T10:00:00',
+        '数据结构 C': '2026-06-29T00:00:00',
+        '英语四级': '2025-06-14'
+    };
+    const examDates = Object.assign({}, DEFAULT_EXAM_DATES, JSON.parse(localStorage.getItem('exam_dates') || '{}'));
+    examDates['运筹学'] = DEFAULT_EXAM_DATES['运筹学'];
+    examDates['数据结构 C'] = DEFAULT_EXAM_DATES['数据结构 C'];
+    localStorage.setItem('exam_dates', JSON.stringify(examDates));
+    const subjNameMap = {'complex-analysis':'复变函数','abstract-algebra':'抽象代数','operations-research':'运筹学','data-structures-c':'数据结构 C','english-cet':'英语四级'};
     const subjName = subjNameMap['{{ key }}'] || '';
     const examDateStr = examDates[subjName];
     if (examDateStr) {
         const examDate = new Date(examDateStr);
-        const diff = Math.ceil((examDate - new Date()) / (1000*60*60*24));
+        const diffMs = examDate - new Date();
+        const diff = Math.ceil(diffMs / (1000*60*60*24));
+        const hoursLeft = Math.max(0, Math.ceil(diffMs / (1000*60*60)));
         const el = document.getElementById('exam-countdown-subj');
         if (diff < 0) { el.textContent = '已过'; el.style.color = '#6b7280'; }
         else if (diff === 0) { el.textContent = '今天！'; el.style.color = '#ef4444'; }
-        else { el.textContent = diff + ' 天'; el.style.color = diff <= 3 ? '#ef4444' : diff <= 7 ? '#f59e0b' : '#22c55e'; }
+        else {
+            const daysPart = Math.floor(hoursLeft / 24);
+            const hourPart = hoursLeft % 24;
+            el.textContent = daysPart > 0 ? `${daysPart}天${hourPart}小时` : `${hoursLeft}小时`;
+            el.style.color = diff <= 3 ? '#ef4444' : diff <= 7 ? '#f59e0b' : '#22c55e';
+        }
+    }
+    if ('{{ key }}' === 'data-structures-c') {
+        const infoItems = document.querySelectorAll('#exam-info-bar .exam-info-item');
+        if (infoItems[1]) infoItems[1].querySelector('strong').textContent = '4-6 小时';
     }
 
     // 恢复上次阅读位置
@@ -235,10 +297,18 @@ function toggleExamMode() {
             '能写群的定义和子群判别法','能叙述 Lagrange 定理并应用','能判断正规子群并构造商群','能叙述第一同构定理','能使用 Sylow 三定理判断群非单','能区分环/整环/域并判断理想类型','会用 Eisenstein 判别法证不可约','知道最大理想↔域 素理想↔整环的对应'
         ],
         'operations-research': [
-            '能建立线性规划模型（变量+目标+约束）','能手算单纯形法完整流程','会写对偶问题并用互补松弛验证','能做运输问题的表上作业法','能建立动态规划的状态转移方程','会算 M/M/1 排队模型的核心指标','能用 Dijkstra 算法求最短路','会做指派问题的匈牙利法'
+            '能完整手算单纯形表：标准型、检验数、入基、出基、主元、最优判断',
+            '会把标准线性规划写成对偶问题，并解释强对偶/弱对偶含义',
+            '会用互补松弛定理由原最优解求对偶最优解，或反向验证最优',
+            '知道灵敏度分析中目标系数变化看检验数，右端项变化看 RHS',
+            '会建立整数规划模型，特别是 0-1 变量、互斥、蕴含、至少/至多约束',
+            '会用分支定界法求小型整数规划，并写出每个节点的界和剪枝理由',
+            '会从非整数最优表构造 Gomory 割平面约束',
+            '会用 Dijkstra/Floyd 求最短路径，并写标号更新表和路径反推',
+            '会做最大流增广路，写瓶颈容量、累计流量，并用最小割验证'
         ],
         'data-structures-c': [
-            '能写出单链表的基本操作（插入/删除）','会判循环队列的空和满','能手写二叉树三种遍历','能画 AVL 树的四种旋转','会构造哈夫曼树并算 WPL','能写 DFS/BFS 并分析复杂度','能算 KMP 的 next 数组','能区分稳定和不稳定排序算法'
+            '能写顺序表/单链表代码并说明边界','会判循环队列空/满并计算元素个数','能手算 KMP 的 next 数组','会算数组地址、三元组转置和广义表深度','能重建二叉树并写遍历序列','能画 AVL 旋转、B 树分裂和哈夫曼树','能写 DFS/BFS、Dijkstra、拓扑排序过程','会算折半查找和哈希查找 ASL','能写排序每趟结果、复杂度和稳定性','完成章节大题例题中树/图/查找/排序部分','完成一轮 10 题数据结构模拟测验'
         ],
         'english-cet': [
             '已掌握 80 个核心高频词汇','能用逻辑词定位法做听力','能快速完成选词填空（词性+语法）','掌握了长篇阅读的扫读匹配技巧','能套用写作三段式模板','会用拆分法做翻译题','完成至少 3 套真题模拟','建立了自己的错题复盘流程'
